@@ -86,8 +86,7 @@ static const char filter_fn[] = {
     C(0,                                                                                              )
     C(1,     bvec4 interpolate_cnd1 = greaterThan(abs(fc - fe), temp_diff[0]);                        )
     C(1,     vec4 interpol = mix(interpolate_cur, interpolate_all, interpolate_cnd1);                 )
-    /* Cliping interpol between [fd - diff, fd + diff] is intentionally left out.
-     * Removing the clipping increases quality. TODO: research and fix the C version to match this. */
+    C(1,     interpol = clamp(interpol, fd - diff, fd + diff);                                        )
     C(1,     return mix(interpol, fd, diff_mask);                                                     )
     C(0, }                                                                                            )
 };
@@ -253,8 +252,6 @@ static av_cold int init_filter(AVFilterContext *ctx)
 
     s->initialized = 1;
 
-    return 0;
-
 fail:
     if (spv_opaque)
         spv->free_shader(spv, &spv_opaque);
@@ -328,8 +325,8 @@ static int bwdif_vulkan_config_input(AVFilterLink *inlink)
 
     /* Defaults */
     vkctx->output_format = input_frames->sw_format;
-    vkctx->output_width  = input_frames->width;
-    vkctx->output_height = input_frames->height;
+    vkctx->output_width  = inlink->w;
+    vkctx->output_height = inlink->h;
 
     return 0;
 }

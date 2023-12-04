@@ -577,7 +577,7 @@ static void handle_klv(AVFormatContext *avctx, decklink_ctx *ctx, IDeckLinkVideo
 class decklink_input_callback : public IDeckLinkInputCallback
 {
 public:
-        decklink_input_callback(AVFormatContext *_avctx);
+        explicit decklink_input_callback(AVFormatContext *_avctx);
         ~decklink_input_callback();
 
         virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) { return E_NOINTERFACE; }
@@ -1297,7 +1297,7 @@ av_cold int ff_decklink_read_header(AVFormatContext *avctx)
         goto error;
     }
 
-    ff_decklink_packet_queue_init(avctx, &ctx->queue);
+    ff_decklink_packet_queue_init(avctx, &ctx->queue, cctx->queue_size);
 
     if (ctx->dli->StartStreams() != S_OK) {
         av_log(avctx, AV_LOG_ERROR, "Cannot start input stream\n");
