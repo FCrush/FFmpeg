@@ -57,7 +57,7 @@ int ff_dovi_configure(DOVIContext *s, AVCodecContext *avctx)
     AVDOVIDecoderConfigurationRecord *cfg;
     const AVDOVIRpuDataHeader *hdr = NULL;
     const AVFrameSideData *sd;
-    int dv_profile, dv_level, bl_compat_id;
+    int dv_profile, dv_level, bl_compat_id = -1;
     size_t cfg_size;
     uint64_t pps;
 
@@ -94,9 +94,6 @@ int ff_dovi_configure(DOVIContext *s, AVCodecContext *avctx)
     }
 
     switch (dv_profile) {
-    case 0: /* None */
-        bl_compat_id = -1;
-        break;
     case 4: /* HEVC with enhancement layer */
     case 7:
         if (s->enable > 0) {
@@ -130,9 +127,6 @@ int ff_dovi_configure(DOVIContext *s, AVCodecContext *avctx)
                    avctx->color_primaries == AVCOL_PRI_BT709 &&
                    avctx->color_trc == AVCOL_TRC_BT709) {
             bl_compat_id = 2;
-        } else {
-            /* Not a valid colorspace combination */
-            bl_compat_id = -1;
         }
     }
 
@@ -245,7 +239,7 @@ static inline void put_se_coef(PutBitContext *pb, const AVDOVIRpuDataHeader *hdr
 
 static int av_q2den(AVRational q, int den)
 {
-    if (q.den == den)
+    if (!q.den || q.den == den)
         return q.num;
     q = av_mul_q(q, av_make_q(den, 1));
     return (q.num + (q.den >> 1)) / q.den;
