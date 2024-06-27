@@ -253,7 +253,7 @@ External library support:
   --enable-libopencore-amrwb enable AMR-WB decoding via libopencore-amrwb [no]
   --enable-libopencv       enable video filtering via libopencv [no]
   --enable-libopenh264     enable H.264 encoding via OpenH264 [no]
-  --enable-libopenjpeg     enable JPEG 2000 de/encoding via OpenJPEG [no]
+  --enable-libopenjpeg     enable JPEG 2000 encoding via OpenJPEG [no]
   --enable-libopenmpt      enable decoding tracked files via libopenmpt [no]
   --enable-libopenvino     enable OpenVINO as a DNN module backend
                            for DNN based filters like dnn_processing [no]
@@ -293,6 +293,7 @@ External library support:
   --enable-libvorbis       enable Vorbis en/decoding via libvorbis,
                            native implementation exists [no]
   --enable-libvpx          enable VP8 and VP9 de/encoding via libvpx [no]
+  --enable-libvvenc        enable H.266/VVC encoding via vvenc [no]
   --enable-libwebp         enable WebP encoding via libwebp [no]
   --enable-libx264         enable H.264 encoding via x264 [no]
   --enable-libx265         enable HEVC encoding via x265 [no]
@@ -1966,6 +1967,7 @@ EXTERNAL_LIBRARY_LIST="
     libvmaf
     libvorbis
     libvpx
+    libvvenc
     libwebp
     libxevd
     libxeve
@@ -2128,12 +2130,7 @@ AUTODETECT_LIBS="
 
 ARCH_LIST="
     aarch64
-    alpha
     arm
-    avr32
-    avr32_ap
-    avr32_uc
-    bfin
     ia64
     loongarch
     loongarch32
@@ -2146,7 +2143,6 @@ ARCH_LIST="
     ppc64
     riscv
     s390
-    sh4
     sparc
     sparc64
     tilegx
@@ -2222,6 +2218,7 @@ ARCH_EXT_LIST_PPC="
 ARCH_EXT_LIST_RISCV="
     rv
     rvv
+    rv_zvbb
 "
 
 ARCH_EXT_LIST_X86="
@@ -2272,6 +2269,7 @@ HAVE_LIST_PUB="
 
 HEADERS_LIST="
     arpa_inet_h
+    asm_hwprobe_h
     asm_types_h
     cdio_paranoia_h
     cdio_paranoia_paranoia_h
@@ -2585,6 +2583,7 @@ CONFIG_EXTRA="
     inflate_wrapper
     intrax8
     iso_media
+    iso_writer
     ividsp
     jpegtables
     lgplv3
@@ -2760,6 +2759,7 @@ power8_deps="vsx"
 
 rv_deps="riscv"
 rvv_deps="rv"
+rv_zvbb_deps="rvv"
 
 loongson2_deps="mips"
 loongson3_deps="mips"
@@ -2812,8 +2812,8 @@ for ext in $(filter_out mmx $ARCH_EXT_LIST_X86_SIMD); do
 done
 
 aligned_stack_if_any="aarch64 ppc x86"
-fast_64bit_if_any="aarch64 alpha ia64 mips64 parisc64 ppc64 riscv64 sparc64 x86_64"
-fast_clz_if_any="aarch64 alpha avr32 mips ppc x86"
+fast_64bit_if_any="aarch64 ia64 mips64 parisc64 ppc64 riscv64 sparc64 x86_64"
+fast_clz_if_any="aarch64 mips ppc x86"
 fast_unaligned_if_any="aarch64 ppc x86"
 simd_align_16_if_any="altivec neon sse"
 simd_align_32_if_any="avx"
@@ -2846,8 +2846,8 @@ deflate_wrapper_deps="zlib"
 dirac_parse_select="golomb"
 dovi_rpudec_select="golomb"
 dovi_rpuenc_select="golomb"
-dnn_suggest="libtensorflow libopenvino libtorch"
 dnn_deps="avformat swscale"
+dnn_deps_any="libtensorflow libopenvino libtorch"
 error_resilience_select="me_cmp"
 evcparse_select="golomb"
 faandct_deps="faan"
@@ -2855,6 +2855,7 @@ faandct_select="fdctdsp"
 faanidct_deps="faan"
 faanidct_select="idctdsp"
 h264dsp_select="startcode"
+h264parse_select="golomb"
 h264_sei_select="atsc_a53 golomb"
 hevcparse_select="golomb"
 hevc_sei_select="atsc_a53 golomb"
@@ -3014,7 +3015,7 @@ mpeg1video_decoder_select="mpegvideodec"
 mpeg1video_encoder_select="mpegvideoenc"
 mpeg2video_decoder_select="mpegvideodec"
 mpeg2video_encoder_select="mpegvideoenc"
-mpeg4_decoder_select="h263_decoder mpeg4video_parser"
+mpeg4_decoder_select="h263_decoder"
 mpeg4_encoder_select="h263_encoder qpeldsp"
 msa1_decoder_select="mss34dsp"
 mscc_decoder_select="inflate_wrapper"
@@ -3423,6 +3424,7 @@ av1_vaapi_encoder_select="cbs_av1 vaapi_encode"
 aac_parser_select="adts_header mpeg4audio"
 av1_parser_select="cbs_av1"
 evc_parser_select="evcparse"
+ftr_parser_select="adts_header mpeg4audio"
 h264_parser_select="golomb h264dsp h264parse h264_sei"
 hevc_parser_select="hevcparse hevc_sei"
 mpegaudio_parser_select="mpegaudioheader"
@@ -3554,6 +3556,7 @@ libvpx_vp8_decoder_deps="libvpx"
 libvpx_vp8_encoder_deps="libvpx"
 libvpx_vp9_decoder_deps="libvpx"
 libvpx_vp9_encoder_deps="libvpx"
+libvvenc_encoder_deps="libvvenc"
 libwebp_encoder_deps="libwebp"
 libwebp_anim_encoder_deps="libwebp"
 libx262_encoder_deps="libx262"
@@ -3606,7 +3609,7 @@ evc_demuxer_select="evc_frame_merge_bsf evc_parser"
 f4v_muxer_select="mov_muxer"
 fifo_muxer_deps="threads"
 flac_demuxer_select="flac_parser"
-flv_muxer_select="aac_adtstoasc_bsf"
+flv_muxer_select="aac_adtstoasc_bsf iso_writer"
 gxf_muxer_select="pcm_rechunk_bsf"
 hds_muxer_select="flv_muxer"
 hls_demuxer_select="aac_demuxer ac3_demuxer adts_header ac3_parser eac3_demuxer mov_demuxer mpegts_demuxer"
@@ -3624,12 +3627,12 @@ latm_muxer_select="aac_adtstoasc_bsf mpeg4audio"
 matroska_audio_muxer_select="matroska_muxer"
 matroska_demuxer_select="riffdec"
 matroska_demuxer_suggest="bzlib zlib"
-matroska_muxer_select="mpeg4audio riffenc aac_adtstoasc_bsf pgs_frame_merge_bsf vp9_superframe_bsf"
+matroska_muxer_select="iso_writer mpeg4audio riffenc aac_adtstoasc_bsf pgs_frame_merge_bsf vp9_superframe_bsf"
 mlp_demuxer_select="mlp_parser"
 mmf_muxer_select="riffenc"
 mov_demuxer_select="iso_media riffdec"
 mov_demuxer_suggest="iamfdec zlib"
-mov_muxer_select="iso_media riffenc rtpenc_chain vp9_superframe_bsf aac_adtstoasc_bsf ac3_parser"
+mov_muxer_select="iso_media iso_writer riffenc rtpenc_chain vp9_superframe_bsf aac_adtstoasc_bsf ac3_parser"
 mov_muxer_suggest="iamfenc"
 mp3_demuxer_select="mpegaudio_parser"
 mp3_muxer_select="mpegaudioheader"
@@ -3637,7 +3640,7 @@ mp4_muxer_select="mov_muxer"
 mpegts_demuxer_select="iso_media"
 mpegts_muxer_select="ac3_parser adts_muxer latm_muxer h264_mp4toannexb_bsf hevc_mp4toannexb_bsf vvc_mp4toannexb_bsf"
 mpegtsraw_demuxer_select="mpegts_demuxer"
-mxf_muxer_select="pcm_rechunk_bsf rangecoder"
+mxf_muxer_select="iso_writer pcm_rechunk_bsf rangecoder"
 mxf_d10_muxer_select="mxf_muxer"
 mxf_opatom_muxer_select="mxf_muxer"
 nut_muxer_select="riffenc"
@@ -3650,6 +3653,7 @@ ogv_muxer_select="ogg_muxer"
 opus_muxer_select="ogg_muxer"
 psp_muxer_select="mov_muxer"
 rtp_demuxer_select="sdp_demuxer"
+rtp_muxer_select="iso_writer"
 rtp_mpegts_muxer_select="mpegts_muxer rtp_muxer"
 rtpdec_select="asf_demuxer mov_demuxer mpegts_demuxer rm_demuxer rtp_protocol srtp"
 rtsp_demuxer_select="http_protocol rtpdec"
@@ -5242,9 +5246,6 @@ case "$arch" in
     s390|s390x)
         arch="s390"
     ;;
-    sh4|sh)
-        arch="sh4"
-    ;;
     sun4*|sparc*)
         arch="sparc"
     ;;
@@ -5270,10 +5271,6 @@ if enabled aarch64; then
             cpuflags="-mcpu=$cpu"
         ;;
     esac
-
-elif enabled alpha; then
-
-    cpuflags="-mcpu=$cpu"
 
 elif enabled arm; then
 
@@ -5340,31 +5337,6 @@ elif enabled arm; then
     esac
 
     test_cflags -mfp16-format=ieee && add_cflags -mfp16-format=ieee
-
-elif enabled avr32; then
-
-    case $cpu in
-        ap7[02]0[0-2])
-            subarch="avr32_ap"
-            cpuflags="-mpart=$cpu"
-        ;;
-        ap)
-            subarch="avr32_ap"
-            cpuflags="-march=$cpu"
-        ;;
-        uc3[ab]*)
-            subarch="avr32_uc"
-            cpuflags="-mcpu=$cpu"
-        ;;
-        uc)
-            subarch="avr32_uc"
-            cpuflags="-march=$cpu"
-        ;;
-    esac
-
-elif enabled bfin; then
-
-    cpuflags="-mcpu=$cpu"
 
 elif enabled loongarch; then
 
@@ -5544,6 +5516,7 @@ elif enabled ppc; then
 
 elif enabled riscv; then
 
+    check_headers asm/hwprobe.h
     check_headers sys/hwprobe.h
 
     if test_cpp_condition stddef.h "__riscv_zbb"; then
@@ -5590,6 +5563,12 @@ elif enabled x86; then
             enable fast_cmov
         ;;
     esac
+
+else
+
+    if test_cpp_condition inttypes.h "UINTPTR_MAX >= UINT64_MAX"; then
+        enable fast_64bit
+    fi
 
 fi
 
@@ -5655,7 +5634,7 @@ check_64bit(){
 }
 
 case "$arch" in
-    aarch64|alpha|ia64)
+    aarch64|ia64)
         enabled shared && enable_weak pic
     ;;
     loongarch)
@@ -6234,10 +6213,6 @@ if enabled aarch64; then
         enabled_any ${v}_external ${v}_inline || disable $v
     done
 
-elif enabled alpha; then
-
-    check_cflags -mieee
-
 elif enabled arm; then
 
     enabled msvc && check_cpp_condition thumb stddef.h "defined _M_ARMT"
@@ -6384,6 +6359,7 @@ elif enabled riscv; then
 
     enabled rv && check_inline_asm rv '".option arch, +zbb\nrev8 t0, t1"'
     enabled rvv && check_inline_asm rvv '".option arch, +v\nvsetivli zero, 0, e8, m1, ta, ma"'
+    enabled rv_zvbb && check_inline_asm rv_zvbb '".option arch, +zvbb\nvclz.v v0, v8"'
 
 elif enabled x86; then
 
@@ -7021,6 +6997,7 @@ enabled libvpx            && {
     fi
 }
 
+enabled libvvenc          && require_pkg_config libvvenc "libvvenc >= 1.6.1" "vvenc/vvenc.h" vvenc_get_version
 enabled libwebp           && {
     enabled libwebp_encoder      && require_pkg_config libwebp "libwebp >= 0.2.0" webp/encode.h WebPGetEncoderVersion
     enabled libwebp_anim_encoder && check_pkg_config libwebp_anim_encoder "libwebpmux >= 0.4.0" webp/mux.h WebPAnimEncoderOptionsInit; }
@@ -7341,7 +7318,7 @@ fi
 
 if enabled x86; then
     case $target_os in
-        mingw32*|mingw64*|win32|win64|linux|cygwin*)
+        freebsd|mingw32*|mingw64*|win32|win64|linux|cygwin*)
             ;;
         *)
             disable ffnvcodec cuvid nvdec nvenc
@@ -7379,7 +7356,7 @@ fi
 
 enabled amf &&
     check_cpp_condition amf "AMF/core/Version.h" \
-        "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x00010004001d0000"
+        "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x0001000400210000"
 
 # Funny iconv installations are not unusual, so check it after all flags have been set
 if enabled libc_iconv; then
@@ -7793,14 +7770,14 @@ enabled elbg_filter         && prepend avfilter_deps "avcodec"
 enabled find_rect_filter    && prepend avfilter_deps "avformat avcodec"
 enabled fsync_filter        && prepend avfilter_deps "avformat"
 enabled mcdeint_filter      && prepend avfilter_deps "avcodec"
-enabled movie_filter    && prepend avfilter_deps "avformat avcodec"
+enabled movie_filter        && prepend avfilter_deps "avformat avcodec"
 enabled pan_filter          && prepend avfilter_deps "swresample"
 enabled pp_filter           && prepend avfilter_deps "postproc"
-enabled qrencode_filter     && prepend_avfilter_deps "swscale"
-enabled qrencodesrc_filter  && prepend_avfilter_deps "swscale"
+enabled qrencode_filter     && prepend avfilter_deps "swscale"
+enabled qrencodesrc_filter  && prepend avfilter_deps "swscale"
 enabled removelogo_filter   && prepend avfilter_deps "avformat avcodec swscale"
 enabled sab_filter          && prepend avfilter_deps "swscale"
-enabled scale_filter    && prepend avfilter_deps "swscale"
+enabled scale_filter        && prepend avfilter_deps "swscale"
 enabled scale2ref_filter    && prepend avfilter_deps "swscale"
 enabled showcqt_filter      && prepend avfilter_deps "avformat swscale"
 enabled signature_filter    && prepend avfilter_deps "avcodec avformat"

@@ -745,8 +745,9 @@ static int init_video_param_jpeg(AVCodecContext *avctx, QSVEncContext *q)
     if (avctx->hw_frames_ctx) {
         AVHWFramesContext *frames_ctx    = (AVHWFramesContext *)avctx->hw_frames_ctx->data;
         AVQSVFramesContext *frames_hwctx = frames_ctx->hwctx;
-        q->param.mfx.FrameInfo.Width  = frames_hwctx->surfaces[0].Info.Width;
-        q->param.mfx.FrameInfo.Height = frames_hwctx->surfaces[0].Info.Height;
+        mfxFrameInfo *info = frames_hwctx->nb_surfaces ? &frames_hwctx->surfaces[0].Info : frames_hwctx->info;
+        q->param.mfx.FrameInfo.Width  = info->Width;
+        q->param.mfx.FrameInfo.Height = info->Height;
     }
 
     if (avctx->framerate.den > 0 && avctx->framerate.num > 0) {
@@ -869,8 +870,9 @@ static int init_video_param(AVCodecContext *avctx, QSVEncContext *q)
     if (avctx->hw_frames_ctx) {
         AVHWFramesContext *frames_ctx = (AVHWFramesContext*)avctx->hw_frames_ctx->data;
         AVQSVFramesContext *frames_hwctx = frames_ctx->hwctx;
-        q->param.mfx.FrameInfo.Width  = frames_hwctx->surfaces[0].Info.Width;
-        q->param.mfx.FrameInfo.Height = frames_hwctx->surfaces[0].Info.Height;
+        mfxFrameInfo *info = frames_hwctx->nb_surfaces ? &frames_hwctx->surfaces[0].Info : frames_hwctx->info;
+        q->param.mfx.FrameInfo.Width  = info->Width;
+        q->param.mfx.FrameInfo.Height = info->Height;
     }
 
     if (avctx->framerate.den > 0 && avctx->framerate.num > 0) {
@@ -2480,7 +2482,7 @@ static int encode_frame(AVCodecContext *avctx, QSVEncContext *q,
 
         if (frame->pict_type == AV_PICTURE_TYPE_I) {
             enc_ctrl->FrameType = MFX_FRAMETYPE_I | MFX_FRAMETYPE_REF;
-            if (q->forced_idr)
+            if ((frame->flags & AV_FRAME_FLAG_KEY) || q->forced_idr)
                 enc_ctrl->FrameType |= MFX_FRAMETYPE_IDR;
         }
     }

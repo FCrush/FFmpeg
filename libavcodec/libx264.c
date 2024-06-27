@@ -922,7 +922,9 @@ static int set_avcc_extradata(AVCodecContext *avctx, x264_nal_t *nal, int nnal)
          *
          * +4 to skip until sps id.
          */
-        init_get_bits8(&gbc, sps + 4, sps_nal->i_payload - 4 - 4);
+        ret = init_get_bits8(&gbc, sps + 4, sps_nal->i_payload - 4 - 4);
+        if (ret < 0)
+            return ret;
         // Skip sps id
         get_ue_golomb_31(&gbc);
         chroma_format_idc = get_ue_golomb_31(&gbc);
@@ -1385,8 +1387,8 @@ FF_ENABLE_DEPRECATION_WARNINGS
         x4->params.b_repeat_headers = 1;
 
     {
-        AVDictionaryEntry *en = NULL;
-        while (en = av_dict_get(x4->x264_params, "", en, AV_DICT_IGNORE_SUFFIX)) {
+        const AVDictionaryEntry *en = NULL;
+        while (en = av_dict_iterate(x4->x264_params, en)) {
            if ((ret = x264_param_parse(&x4->params, en->key, en->value)) < 0) {
                av_log(avctx, AV_LOG_WARNING,
                       "Error parsing option '%s = %s'.\n",

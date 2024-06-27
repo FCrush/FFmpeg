@@ -10,6 +10,10 @@ version <next>:
 - vf_scale supports secondary ref input and framesync options
 - vf_scale2ref deprecated
 - qsv_params option added for QSV encoders
+- VVC decoder compatible with DVB test content
+- xHE-AAC decoder
+- removed DEC Alpha DSP and support code
+- VVC encoding support via libvvenc
 
 
 version 7.0:

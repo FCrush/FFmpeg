@@ -22,13 +22,11 @@
  * @see doc/multithreading.txt
  */
 
-#include "config.h"
-
 #include <stdatomic.h>
-#include <stdint.h>
 
 #include "avcodec.h"
 #include "avcodec_internal.h"
+#include "codec_desc.h"
 #include "codec_internal.h"
 #include "decode.h"
 #include "hwaccel_internal.h"
@@ -108,6 +106,10 @@ typedef struct PerThreadContext {
     int hwaccel_threadsafe;
 
     atomic_int debug_threads;       ///< Set if the FF_DEBUG_THREADS option is set.
+
+    /// The following two fields have the same semantics as the DecodeContext field
+    int intra_only_flag;
+    enum AVPictureType initial_pict_type;
 } PerThreadContext;
 
 /**
@@ -220,6 +222,8 @@ static attribute_align_arg void *frame_worker_thread(void *arg)
 
         av_frame_unref(p->frame);
         p->got_frame = 0;
+        p->frame->pict_type = p->initial_pict_type;
+        p->frame->flags    |= p->intra_only_flag;
         p->result = codec->cb.decode(avctx, p->frame, &p->got_frame, p->avpkt);
 
         if ((p->result < 0 || !p->got_frame) && p->frame->buf[0])
@@ -763,6 +767,13 @@ static av_cold int init_thread(PerThreadContext *p, int *threads_to_free,
     AVCodecContext *copy;
     int err;
 
+    p->initial_pict_type = AV_PICTURE_TYPE_NONE;
+    if (avctx->codec_descriptor->props & AV_CODEC_PROP_INTRA_ONLY) {
+        p->intra_only_flag = AV_FRAME_FLAG_KEY;
+        if (avctx->codec_type == AVMEDIA_TYPE_VIDEO)
+            p->initial_pict_type = AV_PICTURE_TYPE_I;
+    }
+
     atomic_init(&p->state, STATE_INPUT_READY);
 
     copy = av_memdup(avctx, sizeof(*avctx));
@@ -985,11 +996,6 @@ int ff_thread_get_ext_buffer(AVCodecContext *avctx, ThreadFrame *f, int flags)
     int ret;
 
     f->owner[0] = f->owner[1] = avctx;
-    /* Hint: It is possible for this function to be called with codecs
-     * that don't support frame threading at all, namely in case
-     * a frame-threaded decoder shares code with codecs that are not.
-     * This currently affects non-MPEG-4 mpegvideo codecs.
-     * The following check will always be true for them. */
     if (!(avctx->active_thread_type & FF_THREAD_FRAME))
         return ff_get_buffer(avctx, f->f, flags);
 

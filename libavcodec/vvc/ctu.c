@@ -713,8 +713,8 @@ static enum IntraPredMode luma_intra_pred_mode(VVCLocalContext* lc, const int in
         const int x_b           = (x0 + cu->cb_width - 1) >> sps->min_cb_log2_size_y;
         const int y_b           = (y0 - 1) >> sps->min_cb_log2_size_y;
         int min_cb_width        = fc->ps.pps->min_cb_width;
-        int x0b                 = av_mod_uintp2(x0, sps->ctb_log2_size_y);
-        int y0b                 = av_mod_uintp2(y0, sps->ctb_log2_size_y);
+        int x0b                 = av_zero_extend(x0, sps->ctb_log2_size_y);
+        int y0b                 = av_zero_extend(y0, sps->ctb_log2_size_y);
         const int available_l   = lc->ctb_left_flag || x0b;
         const int available_u   = lc->ctb_up_flag || y0b;
 
@@ -1263,8 +1263,8 @@ static void derive_mmvd(const VVCLocalContext *lc, MvField *mvf, const Mv *mmvd_
         const RefPicList *rpl = sc->rpl;
         const int poc = lc->fc->ps.ph.poc;
         const int diff[] = {
-            poc - rpl[0].list[mvf->ref_idx[0]],
-            poc - rpl[1].list[mvf->ref_idx[1]]
+            poc - rpl[L0].refs[mvf->ref_idx[L0]].poc,
+            poc - rpl[L1].refs[mvf->ref_idx[L1]].poc
         };
         const int sign = FFSIGN(diff[0]) != FFSIGN(diff[1]);
 
@@ -1275,7 +1275,7 @@ static void derive_mmvd(const VVCLocalContext *lc, MvField *mvf, const Mv *mmvd_
             const int i = FFABS(diff[0]) < FFABS(diff[1]);
             const int o = !i;
             mmvd[i] = *mmvd_offset;
-            if (!rpl[0].isLongTerm[mvf->ref_idx[0]] && !rpl[1].isLongTerm[mvf->ref_idx[1]]) {
+            if (!rpl[L0].refs[mvf->ref_idx[L0]].is_lt && !rpl[L1].refs[mvf->ref_idx[L1]].is_lt) {
                 ff_vvc_mv_scale(&mmvd[o], mmvd_offset, diff[i], diff[o]);
             }
             else {
@@ -1444,20 +1444,25 @@ static void merge_data_block(VVCLocalContext *lc)
     }
 }
 
-static void merge_data_ibc(VVCLocalContext *lc)
+static int merge_data_ibc(VVCLocalContext *lc)
 {
     const VVCFrameContext* fc = lc->fc;
     const VVCSPS* sps         = fc->ps.sps;
     MotionInfo *mi            = &lc->cu->pu.mi;
     int merge_idx             = 0;
+    int ret;
 
     mi->pred_flag = PF_IBC;
 
     if (sps->max_num_ibc_merge_cand > 1)
         merge_idx = ff_vvc_merge_idx(lc);
 
-    ff_vvc_luma_mv_merge_ibc(lc, merge_idx, &mi->mv[L0][0]);
+    ret = ff_vvc_luma_mv_merge_ibc(lc, merge_idx, &mi->mv[L0][0]);
+    if (ret)
+        return ret;
     ff_vvc_store_mv(lc, mi);
+
+    return 0;
 }
 
 static int hls_merge_data(VVCLocalContext *lc)
@@ -1466,11 +1471,14 @@ static int hls_merge_data(VVCLocalContext *lc)
     const VVCPH  *ph            = &fc->ps.ph;
     const CodingUnit *cu        = lc->cu;
     PredictionUnit *pu          = &lc->cu->pu;
+    int ret;
 
     pu->merge_gpm_flag = 0;
     pu->mi.num_sb_x = pu->mi.num_sb_y = 1;
     if (cu->pred_mode == MODE_IBC) {
-        merge_data_ibc(lc);
+        ret = merge_data_ibc(lc);
+        if (ret)
+            return ret;
     } else {
         if (ph->max_num_subblock_merge_cand > 0 && cu->cb_width >= 8 && cu->cb_height >= 8)
             pu->merge_subblock_flag = ff_vvc_merge_subblock_flag(lc);
@@ -1596,6 +1604,7 @@ static int mvp_data_ibc(VVCLocalContext *lc)
     int mvp_l0_flag           = 0;
     int amvr_shift            = 4;
     Mv *mv                    = &mi->mv[L0][0];
+    int ret;
 
     mi->pred_flag = PF_IBC;
     mi->num_sb_x  = 1;
@@ -1607,7 +1616,9 @@ static int mvp_data_ibc(VVCLocalContext *lc)
     if (sps->r->sps_amvr_enabled_flag && (mv->x || mv->y))
         amvr_shift = ff_vvc_amvr_shift(lc, pu->inter_affine_flag, cu->pred_mode, 1);
 
-    ff_vvc_mvp_ibc(lc, mvp_l0_flag, amvr_shift, mv);
+    ret = ff_vvc_mvp_ibc(lc, mvp_l0_flag, amvr_shift, mv);
+    if (ret)
+        return ret;
     ff_vvc_store_mv(lc, mi);
 
     return 0;
@@ -1689,25 +1700,25 @@ static void derive_dmvr_bdof_flag(const VVCLocalContext *lc, PredictionUnit *pu)
     const VVCPH *ph             = &fc->ps.ph;
     const VVCSH *sh             = &lc->sc->sh;
     const int poc               = ph->poc;
-    const RefPicList *rpl0      = lc->sc->rpl + L0;
-    const RefPicList *rpl1      = lc->sc->rpl + L1;
-    const int8_t *ref_idx       = pu->mi.ref_idx;
     const MotionInfo *mi        = &pu->mi;
+    const int8_t *ref_idx       = mi->ref_idx;
+    const VVCRefPic *rp0        = &lc->sc->rpl[L0].refs[ref_idx[L0]];
+    const VVCRefPic *rp1        = &lc->sc->rpl[L1].refs[ref_idx[L1]];
     const CodingUnit *cu        = lc->cu;
     const PredWeightTable *w    = pps->r->pps_wp_info_in_ph_flag ? &fc->ps.ph.pwt : &sh->pwt;
 
     pu->bdof_flag = 0;
 
     if (mi->pred_flag == PF_BI &&
-        (poc - rpl0->list[ref_idx[L0]] == rpl1->list[ref_idx[L1]] - poc) &&
-        !rpl0->isLongTerm[ref_idx[L0]] && !rpl1->isLongTerm[ref_idx[L1]] &&
+        (poc - rp0->poc == rp1->poc - poc) &&
+        !rp0->is_lt && !rp1->is_lt &&
         !cu->ciip_flag &&
         !mi->bcw_idx &&
-        !w->weight_flag[L0][LUMA][mi->ref_idx[L0]] && !w->weight_flag[L1][LUMA][mi->ref_idx[L1]] &&
-        !w->weight_flag[L0][CHROMA][mi->ref_idx[L0]] && !w->weight_flag[L1][CHROMA][mi->ref_idx[L1]] &&
+        !w->weight_flag[L0][LUMA][ref_idx[L0]] && !w->weight_flag[L1][LUMA][ref_idx[L1]] &&
+        !w->weight_flag[L0][CHROMA][ref_idx[L0]] && !w->weight_flag[L1][CHROMA][ref_idx[L1]] &&
         cu->cb_width >= 8 && cu->cb_height >= 8 &&
-        (cu->cb_width * cu->cb_height >= 128)) {
-        // fixme: for RprConstraintsActiveFlag
+        (cu->cb_width * cu->cb_height >= 128) &&
+        !rp0->is_scaled && !rp1->is_scaled) {
         if (!ph->r->ph_bdof_disabled_flag &&
             mi->motion_model_idc == MOTION_TRANSLATION &&
             !pu->merge_subblock_flag &&
@@ -2508,8 +2519,8 @@ void ff_vvc_set_neighbour_available(VVCLocalContext *lc,
     const int x0, const int y0, const int w, const int h)
 {
     const int log2_ctb_size = lc->fc->ps.sps->ctb_log2_size_y;
-    const int x0b = av_mod_uintp2(x0, log2_ctb_size);
-    const int y0b = av_mod_uintp2(y0, log2_ctb_size);
+    const int x0b = av_zero_extend(x0, log2_ctb_size);
+    const int y0b = av_zero_extend(y0, log2_ctb_size);
 
     lc->na.cand_up       = (lc->ctb_up_flag   || y0b);
     lc->na.cand_left     = (lc->ctb_left_flag || x0b);
