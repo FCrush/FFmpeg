@@ -21,155 +21,110 @@
 
 #include "libavutil/riscv/asm.S"
 
-func ff_vc1_inv_trans_8x8_dc_rvv, zve64x
-        lh            t2, (a2)
-        vsetivli      zero, 8, e8, mf2, ta, ma
-        vlse64.v      v0, (a0), a1
-        sh1add        t2, t2, t2
-        addi          t2, t2, 1
-        srai          t2, t2, 1
-        sh1add        t2, t2, t2
-        addi          t2, t2, 16
-        srai          t2, t2, 5
-        li            t0, 8*8
-        vsetvli       zero, t0, e16, m8, ta, ma
-        vzext.vf2     v8, v0
-        vadd.vx       v8, v8, t2
-        vmax.vx       v8, v8, zero
-        vsetvli       zero, zero, e8, m4, ta, ma
-        vnclipu.wi    v0, v8, 0
-        vsetivli      zero, 8, e8, mf2, ta, ma
-        vsse64.v      v0, (a0), a1
-        ret
-endfunc
+.macro  inv_trans_dc rows, cols, w, mat_lmul, row_lmul
+func ff_vc1_inv_trans_\cols\()x\rows\()_dc_rvv, zve64x, zba
+        lpad    0
+        lh      t2, (a2)
+        li      a4, 22 - (5 * \cols) / 4
+        mul     t2, t2, a4
+        vsetivli    zero, \rows, e8, m\row_lmul, ta, ma
+        vlse\w\().v v0, (a0), a1
+        addi    t2, t2, 4
+        li      a5, 22 - (5 * \rows) / 4
+        srai    t2, t2, 3
+        mul     t2, t2, a5
+.if \cols * \rows >= 32
+        li      t0, \cols * \rows
+.endif
+        addi    t2, t2, 64
+        srai    t2, t2, 7
+.if \rows * \cols >= 32
+        vsetvli     zero, t0, e8, m\mat_lmul, ta, ma
+.else
+        vsetivli    zero, \rows * \cols, e8, m\mat_lmul, ta, ma
+.endif
+        bgez    t2, 1f
 
-func ff_vc1_inv_trans_4x8_dc_rvv, zve32x
-        lh            t2, (a2)
-        vsetivli      zero, 8, e8, mf2, ta, ma
-        vlse32.v      v0, (a0), a1
-        slli          t1, t2, 4
-        add           t2, t2, t1
-        addi          t2, t2, 4
-        srai          t2, t2, 3
-        sh1add        t2, t2, t2
-        slli          t2, t2, 2
-        addi          t2, t2, 64
-        srai          t2, t2, 7
-        li            t0, 4*8
-        vsetvli       zero, t0, e16, m4, ta, ma
-        vzext.vf2     v4, v0
-        vadd.vx       v4, v4, t2
-        vmax.vx       v4, v4, zero
-        vsetvli       zero, zero, e8, m2, ta, ma
-        vnclipu.wi    v0, v4, 0
-        vsetivli      zero, 8, e8, mf2, ta, ma
-        vsse32.v      v0, (a0), a1
+        neg     t2, t2
+        vssubu.vx   v0, v0, t2
+        vsetivli    zero, \rows, e8, m\row_lmul, ta, ma
+        vsse\w\().v v0, (a0), a1
+        ret
+1:
+        vsaddu.vx   v0, v0, t2
+        vsetivli    zero, \rows, e8, m\row_lmul, ta, ma
+        vsse\w\().v v0, (a0), a1
         ret
 endfunc
+.endm
 
-func ff_vc1_inv_trans_8x4_dc_rvv, zve64x
-        lh            t2, (a2)
-        vsetivli      zero, 4, e8, mf4, ta, ma
-        vlse64.v      v0, (a0), a1
-        sh1add        t2, t2, t2
-        addi          t2, t2, 1
-        srai          t2, t2, 1
-        slli          t1, t2, 4
-        add           t2, t2, t1
-        addi          t2, t2, 64
-        srai          t2, t2, 7
-        li            t0, 8*4
-        vsetvli       zero, t0, e16, m4, ta, ma
-        vzext.vf2     v4, v0
-        vadd.vx       v4, v4, t2
-        vmax.vx       v4, v4, zero
-        vsetvli       zero, zero, e8, m2, ta, ma
-        vnclipu.wi    v0, v4, 0
-        vsetivli      zero, 4, e8, mf4, ta, ma
-        vsse64.v      v0, (a0), a1
-        ret
-endfunc
-
-func ff_vc1_inv_trans_4x4_dc_rvv, zve32x
-        lh            t2, (a2)
-        vsetivli      zero, 4, e8, mf4, ta, ma
-        vlse32.v      v0, (a0), a1
-        slli          t1, t2, 4
-        add           t2, t2, t1
-        addi          t2, t2, 4
-        srai          t2, t2, 3
-        slli          t1, t2, 4
-        add           t2, t2, t1
-        addi          t2, t2, 64
-        srai          t2, t2, 7
-        vsetivli      zero, 4*4, e16, m2, ta, ma
-        vzext.vf2     v2, v0
-        vadd.vx       v2, v2, t2
-        vmax.vx       v2, v2, zero
-        vsetvli       zero, zero, e8, m1, ta, ma
-        vnclipu.wi    v0, v2, 0
-        vsetivli      zero, 4, e8, mf4, ta, ma
-        vsse32.v      v0, (a0), a1
-        ret
-endfunc
+inv_trans_dc 8, 8, 64, 4, f2
+inv_trans_dc 4, 8, 64, 2, f4
+inv_trans_dc 8, 4, 32, 2, f2
+inv_trans_dc 4, 4, 32, 1, f4
 
         .variant_cc ff_vc1_inv_trans_8_rvv
 func ff_vc1_inv_trans_8_rvv, zve32x
         li      t4, 12
-        vsll.vi v18, v6, 4
+        vsll.vi v14, v6, 4
         li      t2, 6
-        vmul.vx v8, v0, t4
+        vsll.vi v12, v2, 4
         li      t5, 15
-        vmul.vx v10, v4, t4
+        vmul.vx v8, v0, t4
         li      t3, 9
         # t[2..5] = [6 9 12 15]
-        vsll.vi v12, v2, 4
-        vmul.vx v14, v6, t2
+        vmul.vx v10, v4, t4
         vmul.vx v16, v2, t2
-        vadd.vv v26, v12, v14 # t3
+        vmacc.vx  v12, t2, v6  # t3
+        vnmsac.vx v14, t2, v2 # -t4
         vadd.vv v24, v8, v10  # t1
         vsub.vv v25, v8, v10  # t2
-        vsub.vv v27, v16, v18 # t4
-        vadd.vv v28, v24, v26 # t5
-        vsub.vv v31, v24, v26 # t8
-        vadd.vv v29, v25, v27 # t6
-        vsub.vv v30, v25, v27 # t7
+        vadd.vv v28, v24, v12 # t5
+        vsub.vv v31, v24, v12 # t8
+        vsub.vv v29, v25, v14 # t6
+        vadd.vv v30, v25, v14 # t7
         vsll.vi v20, v1, 4
-        vmul.vx v21, v3, t5
-        vmul.vx v22, v5, t3
-        vsll.vi v23, v7, 2
-        vadd.vv v20, v20, v21
-        vadd.vv v22, v22, v23
+        vsll.vi v22, v7, 2
+        vmacc.vx  v20, t5, v3
+        vmacc.vx  v22, t3, v5
         vsll.vi v21, v3, 2
-        vadd.vv v16, v20, v22 # t1
-        vmul.vx v20, v1, t5
-        vsll.vi v22, v5, 4
-        vmul.vx v23, v7, t3
-        vsub.vv v20, v20, v21
-        vadd.vv v22, v22, v23
-        vsll.vi v21, v3, 4
-        vsub.vv v17, v20, v22 # t2
-        vmul.vx v20, v1, t3
+        vsll.vi v23, v5, 4
+        vadd.vv v24, v20, v22 # t1
+        vnmsac.vx v21, t5, v1
+        vmacc.vx  v23, t3, v7
+        vsll.vi v20, v3, 4
         vsll.vi v22, v5, 2
-        vmul.vx v23, v7, t5
-        vsub.vv v20, v20, v21
-        vadd.vv v22, v22, v23
-        vmul.vx v21, v3, t3
-        vadd.vv v18, v20, v22 # t3
-        vsll.vi v20, v1, 2
-        vmul.vx v22, v5, t5
+        vadd.vv v25, v21, v23 # -t2
+        vnmsac.vx v20, t3, v1
+        vmacc.vx v22, t5, v7
+        vsll.vi v21, v1, 2
         vsll.vi v23, v7, 4
-        vsub.vv v20, v20, v21
-        vsub.vv v22, v22, v23
-        vadd.vv v0, v28, v16
-        vadd.vv v19, v20, v22 # t4
-        vadd.vv v1, v29, v17
-        vadd.vv v2, v30, v18
-        vadd.vv v3, v31, v19
-        vsub.vv v4, v31, v19
-        vsub.vv v5, v30, v18
-        vsub.vv v6, v29, v17
-        vsub.vv v7, v28, v16
+        vsub.vv v26, v22, v20 # t3
+        vnmsac.vx v21, t3, v3
+        vnmsac.vx v23, t5, v5
+        srli    t2, t1, 2
+        vwadd.vv  v8, v28, v24
+        vwsub.vv  v10, v29, v25
+        vsub.vv v27, v21, v23 # t4
+        vwadd.vv  v12, v30, v26
+        vwadd.vv  v14, v31, v27
+        beqz    t2, 1f # faster than 4x add t2=zero
+        .irp    n,31,30,29,28
+        vadd.vi v\n, v\n, 1
+        .endr
+1:
+        vwsub.vv  v16, v31, v27
+        vwsub.vv  v18, v30, v26
+        vwadd.vv  v20, v29, v25
+        vwsub.vv  v22, v28, v24
+        vnclip.wx v0, v8, t1
+        vnclip.wx v1, v10, t1
+        vnclip.wx v2, v12, t1
+        vnclip.wx v3, v14, t1
+        vnclip.wx v4, v16, t1
+        vnclip.wx v5, v18, t1
+        vnclip.wx v6, v20, t1
+        vnclip.wx v7, v22, t1
         jr      t0
 endfunc
 
@@ -180,25 +135,25 @@ func ff_vc1_inv_trans_4_rvv, zve32x
         li      t4, 22
         vmul.vx v10, v2, t3
         li      t2, 10
-        vmul.vx v14, v1, t4
+        vmul.vx v26, v1, t4
+        vmul.vx v27, v3, t4
         vadd.vv v24, v8, v10  # t1
         vsub.vv v25, v8, v10  # t2
-        vmul.vx v16, v3, t2
-        vmul.vx v18, v3, t4
-        vmul.vx v20, v1, t2
-        vadd.vv v26, v14, v16 # t3
-        vsub.vv v27, v18, v20 # t4
-        vadd.vv v0, v24, v26
-        vsub.vv v1, v25, v27
-        vadd.vv v2, v25, v27
-        vsub.vv v3, v24, v26
-        .irp    n,0,1,2,3
-        vssra.vx v\n, v\n, t1 # + 4 >> 3 or + 64 >> 7
-        .endr
+        vmacc.vx v26, t2, v3  # t3
+        vnmsac.vx v27, t2, v1 # t4
+        vwadd.vv  v8, v24, v26
+        vwsub.vv  v10, v25, v27
+        vwadd.vv  v12, v25, v27
+        vwsub.vv  v14, v24, v26
+        vnclip.wx v0, v8, t1
+        vnclip.wx v1, v10, t1
+        vnclip.wx v2, v12, t1
+        vnclip.wx v3, v14, t1
         jr      t0
 endfunc
 
 func ff_vc1_inv_trans_8x8_rvv, zve32x
+        lpad    0
         csrwi    vxrm, 0
         vsetivli zero, 8, e16, m1, ta, ma
         addi     a1, a0, 1 * 8 * 2
@@ -216,42 +171,31 @@ func ff_vc1_inv_trans_8x8_rvv, zve32x
         addi     a7, a0, 7 * 8 * 2
         vle16.v  v6, (a6)
         vle16.v  v7, (a7)
+        li       t1, 3
         jal      t0, ff_vc1_inv_trans_8_rvv
-        .irp n,0,1,2,3,4,5,6,7
-        vssra.vi v\n, v\n, 3
-        .endr
         vsseg8e16.v v0, (a0)
         .irp n,0,1,2,3,4,5,6,7
         vle16.v  v\n, (a\n)
         .endr
+        li       t1, 7
         jal      t0, ff_vc1_inv_trans_8_rvv
-        vadd.vi  v4, v4, 1
-        vadd.vi  v5, v5, 1
-        vssra.vi v4, v4, 7
-        vssra.vi v5, v5, 7
-        vse16.v  v4, (a4)
-        vadd.vi  v6, v6, 1
-        vse16.v  v5, (a5)
-        vadd.vi  v7, v7, 1
-        vssra.vi v6, v6, 7
-        vssra.vi v7, v7, 7
-        vse16.v  v6, (a6)
-        vssra.vi v0, v0, 7
-        vse16.v  v7, (a7)
-        vssra.vi v1, v1, 7
         vse16.v  v0, (a0)
-        vssra.vi v2, v2, 7
         vse16.v  v1, (a1)
-        vssra.vi v3, v3, 7
         vse16.v  v2, (a2)
         vse16.v  v3, (a3)
+        vse16.v  v4, (a4)
+        vse16.v  v5, (a5)
+        vse16.v  v6, (a6)
+        vse16.v  v7, (a7)
         ret
 endfunc
 
 func ff_vc1_inv_trans_8x4_rvv, zve32x
+        lpad    0
         csrwi       vxrm, 0
         vsetivli    zero, 4, e16, mf2, ta, ma
         vlseg8e16.v v0, (a2)
+        li          t1, 3
         jal         t0, ff_vc1_inv_trans_8_rvv
         vsseg8e16.v v0, (a2)
         addi        a3, a2, 1 * 8 * 2
@@ -262,10 +206,6 @@ func ff_vc1_inv_trans_8x4_rvv, zve32x
         addi        a5, a2, 3 * 8 * 2
         vle16.v     v2, (a4)
         vle16.v     v3, (a5)
-        .irp    n,0,1,2,3
-        # shift 4 vectors of 8 elems after transpose instead of 8 of 4
-        vssra.vi    v\n, v\n, 3
-        .endr
         li          t1, 7
         jal         t0, ff_vc1_inv_trans_4_rvv
         add         a3, a1, a0
@@ -297,6 +237,7 @@ func ff_vc1_inv_trans_8x4_rvv, zve32x
 endfunc
 
 func ff_vc1_inv_trans_4x8_rvv, zve32x
+        lpad    0
         li           a3, 8 * 2
         csrwi        vxrm, 0
         vsetivli     zero, 8, e16, m1, ta, ma
@@ -320,33 +261,21 @@ func ff_vc1_inv_trans_4x8_rvv, zve32x
         addi         t1, a2, 7 * 8 * 2
         vle16.v      v6, (t6)
         vle16.v      v7, (t1)
-
+        li           t1, 7
         jal          t0, ff_vc1_inv_trans_8_rvv
-        vadd.vi      v4, v4, 1
         add          t0, a1, a0
-        vadd.vi      v5, v5, 1
-        vadd.vi      v6, v6, 1
-        add          t1, a1, t0
-        vadd.vi      v7, v7, 1
-        vssra.vi     v0, v0, 7
-        add          t2, a1, t1
-        vssra.vi     v1, v1, 7
-        vssra.vi     v2, v2, 7
-        add          t3, a1, t2
-        vssra.vi     v3, v3, 7
-        vssra.vi     v4, v4, 7
-        add          t4, a1, t3
-        vssra.vi     v5, v5, 7
-        vssra.vi     v6, v6, 7
-        add          t5, a1, t4
-        vssra.vi     v7, v7, 7
         vle8.v       v8, (a0)
-        add          t6, a1, t5
+        add          t1, a1, t0
         vle8.v       v9, (t0)
+        add          t2, a1, t1
         vle8.v       v10, (t1)
+        add          t3, a1, t2
         vle8.v       v11, (t2)
+        add          t4, a1, t3
         vle8.v       v12, (t3)
+        add          t5, a1, t4
         vle8.v       v13, (t4)
+        add          t6, a1, t5
         vle8.v       v14, (t5)
         vle8.v       v15, (t6)
         vsetvli      zero, zero, e8, mf4, ta, ma
@@ -383,6 +312,7 @@ func ff_vc1_inv_trans_4x8_rvv, zve32x
 endfunc
 
 func ff_vc1_inv_trans_4x4_rvv, zve32x
+        lpad    0
         li           a3, 8 * 2
         csrwi        vxrm, 0
         vsetivli     zero, 4, e16, mf2, ta, ma
@@ -446,12 +376,14 @@ endfunc
 .endm
 
 func ff_avg_pixels16x16_rvv, zve32x
+        lpad    0
         li       t0, 16
         vsetivli zero, 16, e8, m1, ta, ma
         j        1f
 endfunc
 
 func ff_avg_pixels8x8_rvv, zve32x
+        lpad    0
         li        t0, 8
         vsetivli  zero, 8, e8, mf2, ta, ma
 1:
@@ -470,6 +402,7 @@ func ff_avg_pixels8x8_rvv, zve32x
 endfunc
 
 func ff_vc1_unescape_buffer_rvv, zve32x
+        lpad    0
         vsetivli       zero, 2, e8, m1, ta, ma
         vmv.v.i        v8, -1
         li             t4, 1

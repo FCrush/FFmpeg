@@ -499,7 +499,8 @@ static int cbs_h2645_fragment_add_nals(CodedBitstreamContext *ctx,
         size_t size = nal->size;
         enum AVCodecID codec_id = ctx->codec->codec_id;
 
-        if (codec_id != AV_CODEC_ID_VVC && nal->nuh_layer_id > 0)
+        if (codec_id == AV_CODEC_ID_HEVC && nal->nuh_layer_id > 0 &&
+            (nal->type < HEVC_NAL_VPS || nal->type > HEVC_NAL_PPS))
             continue;
 
         // Remove trailing zeroes.
@@ -572,7 +573,8 @@ static int cbs_h2645_split_fragment(CodedBitstreamContext *ctx,
 
         err = ff_h2645_packet_split(&priv->read_packet,
                                     frag->data + start, end - start,
-                                    ctx->log_ctx, 1, 2, AV_CODEC_ID_H264, 1, 1);
+                                    ctx->log_ctx, 2, AV_CODEC_ID_H264,
+                                    H2645_FLAG_IS_NALFF | H2645_FLAG_SMALL_PADDING | H2645_FLAG_USE_REF);
         if (err < 0) {
             av_log(ctx->log_ctx, AV_LOG_ERROR, "Failed to split AVCC SPS array.\n");
             return err;
@@ -596,7 +598,8 @@ static int cbs_h2645_split_fragment(CodedBitstreamContext *ctx,
 
         err = ff_h2645_packet_split(&priv->read_packet,
                                     frag->data + start, end - start,
-                                    ctx->log_ctx, 1, 2, AV_CODEC_ID_H264, 1, 1);
+                                    ctx->log_ctx, 2, AV_CODEC_ID_H264,
+                                    H2645_FLAG_IS_NALFF | H2645_FLAG_SMALL_PADDING | H2645_FLAG_USE_REF);
         if (err < 0) {
             av_log(ctx->log_ctx, AV_LOG_ERROR, "Failed to split AVCC PPS array.\n");
             return err;
@@ -650,7 +653,8 @@ static int cbs_h2645_split_fragment(CodedBitstreamContext *ctx,
 
             err = ff_h2645_packet_split(&priv->read_packet,
                                         frag->data + start, end - start,
-                                        ctx->log_ctx, 1, 2, AV_CODEC_ID_HEVC, 1, 1);
+                                        ctx->log_ctx, 2, AV_CODEC_ID_HEVC,
+                                        H2645_FLAG_IS_NALFF | H2645_FLAG_SMALL_PADDING | H2645_FLAG_USE_REF);
             if (err < 0) {
                 av_log(ctx->log_ctx, AV_LOG_ERROR, "Failed to split "
                        "HVCC array %d (%d NAL units of type %d).\n",
@@ -720,7 +724,8 @@ static int cbs_h2645_split_fragment(CodedBitstreamContext *ctx,
 
             err = ff_h2645_packet_split(&priv->read_packet,
                                         frag->data + start, end - start,
-                                        ctx->log_ctx, 1, 2, AV_CODEC_ID_VVC, 1, 1);
+                                        ctx->log_ctx, 2, AV_CODEC_ID_VVC,
+                                        H2645_FLAG_IS_NALFF | H2645_FLAG_SMALL_PADDING | H2645_FLAG_USE_REF);
             if (err < 0) {
                 av_log(ctx->log_ctx, AV_LOG_ERROR, "Failed to split "
                        "VVCC array %d (%d NAL units of type %d).\n",
@@ -732,13 +737,14 @@ static int cbs_h2645_split_fragment(CodedBitstreamContext *ctx,
                 return err;
         }
     } else {
+        int flags = (H2645_FLAG_IS_NALFF * !!priv->mp4) | H2645_FLAG_SMALL_PADDING | H2645_FLAG_USE_REF;
         // Annex B, or later MP4 with already-known parameters.
 
         err = ff_h2645_packet_split(&priv->read_packet,
                                     frag->data, frag->data_size,
                                     ctx->log_ctx,
-                                    priv->mp4, priv->nal_length_size,
-                                    codec_id, 1, 1);
+                                    priv->nal_length_size,
+                                    codec_id, flags);
         if (err < 0)
             return err;
 
@@ -2273,6 +2279,12 @@ static const SEIMessageTypeDescriptor cbs_sei_h265_types[] = {
         1, 0,
         sizeof(H265RawSEIAlphaChannelInfo),
         SEI_MESSAGE_RW(h265, sei_alpha_channel_info),
+    },
+    {
+        SEI_TYPE_THREE_DIMENSIONAL_REFERENCE_DISPLAYS_INFO,
+        1, 0,
+        sizeof(H265RawSEI3DReferenceDisplaysInfo),
+        SEI_MESSAGE_RW(h265, sei_3d_reference_displays_info),
     },
     SEI_MESSAGE_TYPE_END
 };

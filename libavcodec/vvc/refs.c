@@ -310,7 +310,7 @@ void ff_vvc_bump_frame(VVCContext *s, VVCFrameContext *fc)
 
 static VVCFrame *find_ref_idx(VVCContext *s, VVCFrameContext *fc, int poc, uint8_t use_msb)
 {
-    const int mask = use_msb ? ~0 : fc->ps.sps->max_pic_order_cnt_lsb - 1;
+    const unsigned mask = use_msb ? ~0 : fc->ps.sps->max_pic_order_cnt_lsb - 1;
 
     for (int i = 0; i < FF_ARRAY_ELEMS(fc->DPB); i++) {
         VVCFrame *ref = &fc->DPB[i];
@@ -588,12 +588,13 @@ void ff_vvc_report_progress(VVCFrame *frame, const VVCProgress vp, const int y)
     VVCProgressListener *l = NULL;
 
     ff_mutex_lock(&p->lock);
-
-    av_assert0(p->progress[vp] < y || p->progress[vp] == INT_MAX);
-    p->progress[vp] = y;
-    l = get_done_listener(p, vp);
-    ff_cond_signal(&p->cond);
-
+    if (p->progress[vp] < y) {
+        // Due to the nature of thread scheduling, later progress may reach this point before earlier progress.
+        // Therefore, we only update the progress when p->progress[vp] < y.
+        p->progress[vp] = y;
+        l = get_done_listener(p, vp);
+        ff_cond_signal(&p->cond);
+    }
     ff_mutex_unlock(&p->lock);
 
     while (l) {

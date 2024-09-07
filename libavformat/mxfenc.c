@@ -2608,9 +2608,6 @@ static int mxf_parse_ffv1_frame(AVFormatContext *s, AVStream *st, AVPacket *pkt)
         v = get_ffv1_unsigned_symbol(&c, state);
         av_assert0(v >= 2);
         if (v > 4) {
-            return 0;
-        }
-        if (v > 4) {
             av_log(s, AV_LOG_ERROR, "unsupported ffv1 version %d\n", v);
             return 0;
         }
@@ -2897,8 +2894,12 @@ static int mxf_init(AVFormatContext *s)
 
         if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
             const AVPixFmtDescriptor *pix_desc = av_pix_fmt_desc_get(st->codecpar->format);
-            // TODO: should be avg_frame_rate
-            AVRational tbc = st->time_base;
+            AVRational tbc = (AVRational){ 0, 0 };
+            if (st->avg_frame_rate.num > 0 && st->avg_frame_rate.den > 0)
+                tbc = av_inv_q(st->avg_frame_rate);
+            else if (st->r_frame_rate.num > 0 && st->r_frame_rate.den > 0)
+                tbc = av_inv_q(st->r_frame_rate);
+
             // Default component depth to 8
             sc->component_depth = 8;
             sc->h_chroma_sub_sample = 2;

@@ -215,6 +215,8 @@ typedef struct MOVStreamContext {
     int timecode_track;
     int width;            ///< tkhd width
     int height;           ///< tkhd height
+    int h_spacing;        ///< pasp hSpacing
+    int v_spacing;        ///< pasp vSpacing
     int dts_shift;        ///< dts shift when ctts is negative
     uint32_t palette[256];
     int has_palette;
@@ -361,8 +363,8 @@ typedef struct MOVContext {
 } MOVContext;
 
 int ff_mp4_read_descr_len(AVIOContext *pb);
-int ff_mp4_read_descr(AVFormatContext *fc, AVIOContext *pb, int *tag);
-int ff_mp4_read_dec_config_descr(AVFormatContext *fc, AVStream *st, AVIOContext *pb);
+int ff_mp4_read_descr(void *logctx, AVIOContext *pb, int *tag);
+int ff_mp4_read_dec_config_descr(void *logctx, AVStream *st, AVIOContext *pb);
 void ff_mp4_parse_es_descr(AVIOContext *pb, int *es_id);
 
 #define MP4ODescrTag                    0x01

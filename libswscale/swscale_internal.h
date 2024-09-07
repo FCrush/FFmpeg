@@ -46,8 +46,6 @@
 
 #define MAX_FILTER_SIZE SWS_MAX_FILTER_SIZE
 
-#define DITHER1XBPP
-
 #if HAVE_BIGENDIAN
 #define ALT32_CORR (-1)
 #else
@@ -1010,6 +1008,10 @@ void ff_hcscale_fast_mmxext(SwsContext *c, int16_t *dst1, int16_t *dst2,
 int ff_sws_alphablendaway(SwsContext *c, const uint8_t *src[],
                           int srcStride[], int srcSliceY, int srcSliceH,
                           uint8_t *dst[], int dstStride[]);
+
+void ff_copyPlane(const uint8_t *src, int srcStride,
+                  int srcSliceY, int srcSliceH, int width,
+                  uint8_t *dst, int dstStride);
 
 static inline void fillPlane16(uint8_t *plane, int stride, int width, int height, int y,
                                int alpha, int bits, const int big_endian)

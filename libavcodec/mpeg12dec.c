@@ -1278,8 +1278,6 @@ static int mpeg_field_start(Mpeg1Context *s1, const uint8_t *buf, int buf_size)
                                                     s->cur_pic.linesize[i]);
                 }
                 s->cur_pic.linesize[i]  *= 2;
-                s->last_pic.linesize[i] *= 2;
-                s->next_pic.linesize[i] *= 2;
             }
         }
 
@@ -1309,7 +1307,7 @@ static int mpeg_field_start(Mpeg1Context *s1, const uint8_t *buf, int buf_size)
         if (s1->a53_buf_ref) {
             ret = ff_frame_new_side_data_from_buf(
                 s->avctx, s->cur_pic.ptr->f, AV_FRAME_DATA_A53_CC,
-                &s1->a53_buf_ref, NULL);
+                &s1->a53_buf_ref);
             if (ret < 0)
                 return ret;
         }
