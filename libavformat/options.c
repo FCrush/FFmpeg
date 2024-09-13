@@ -171,9 +171,9 @@ AVFormatContext *avformat_alloc_context(void)
     s->io_open  = io_open_default;
     s->io_close2= io_close2_default;
 
-    av_opt_set_defaults(s);
+    av_opt_set_defaults(s); //设置options的默认值
 
-    si->pkt = av_packet_alloc();
+    si->pkt = av_packet_alloc(); //分配packet
     si->parse_pkt = av_packet_alloc();
     if (!si->pkt || !si->parse_pkt) {
         avformat_free_context(s);

@@ -1,0 +1,3 @@
+/mnt/hgfs/1C_study/code/FFmpeg/StudyTest/AV_Log_Test/CMakeFiles/AV_Log_Test.dir
+/mnt/hgfs/1C_study/code/FFmpeg/StudyTest/AV_Log_Test/CMakeFiles/edit_cache.dir
+/mnt/hgfs/1C_study/code/FFmpeg/StudyTest/AV_Log_Test/CMakeFiles/rebuild_cache.dir

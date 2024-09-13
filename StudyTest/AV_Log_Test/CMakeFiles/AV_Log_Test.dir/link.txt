@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/AV_Log_Test.dir/AV_Log_Test.c.o -o AV_Log_Test   -L/usr/local/ffmpeg/lib  -Wl,-rpath,/usr/local/ffmpeg/lib -lavutil 

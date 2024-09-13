@@ -123,15 +123,16 @@ typedef struct FFFormatContext {
      * functions with their own AVFormatContext).
      * Every user has to ensure that this packet is blank
      * after using it.
+     * 它主要用作临时数据包,用于各种操作,如解析、复用和刷新。
+     * 对于解复用器,它还可以在特定情况下用于其他短期用途。注释强调了使用这个数据包时需要注意的一些事项,特别是在使用后要确保将其清空
      */
     AVPacket *parse_pkt;
 
     /**
-     * Used to hold temporary packets for the generic demuxing code.
-     * When muxing, it may be used by muxers to hold packets (even
-     * permanent ones).
+     * 用于在通用解复用代码中暂时存放数据包
+     * 在复用时,复用器可能会使用它来存放数据包(甚至是永久性的数据包)
      */
-    AVPacket *pkt;
+    AVPacket *pkt; 
     /**
      * Sum of the size of packets in raw_packet_buffer, in bytes.
      */

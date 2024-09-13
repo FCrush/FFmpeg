@@ -160,9 +160,9 @@ static int init_input(AVFormatContext *s, const char *filename,
     AVProbeData pd = { filename, NULL, 0 };
     int score = AVPROBE_SCORE_RETRY;
 
-    if (s->pb) {
+    if (s->pb) { //表明这是已经由用户自定义了
         s->flags |= AVFMT_FLAG_CUSTOM_IO;
-        if (!s->iformat)
+        if (!s->iformat) //如果还没有确定输入格式
             return av_probe_input_buffer2(s->pb, &s->iformat, filename,
                                           s, 0, s->format_probesize);
         else if (s->iformat->flags & AVFMT_NOFILE)
@@ -223,8 +223,8 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
 
     if (!s && !(s = avformat_alloc_context()))
         return AVERROR(ENOMEM);
-    si = ffformatcontext(s);
-    if (!s->av_class) {
+    si = ffformatcontext(s); //获取格式上下文结构体，内部外部结构体转换
+    if (!s->av_class) { //在avformat_alloc_context()中分配了内存与av_class
         av_log(NULL, AV_LOG_ERROR, "Input context has not been properly allocated by avformat_alloc_context() and is not NULL either\n");
         return AVERROR(EINVAL);
     }
@@ -235,12 +235,12 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
         av_dict_copy(&tmp, *options, 0);
 
     if (s->pb) // must be before any goto fail
-        s->flags |= AVFMT_FLAG_CUSTOM_IO;
+        s->flags |= AVFMT_FLAG_CUSTOM_IO; //表示使用自定义的AVIOContext
 
-    if ((ret = av_opt_set_dict(s, &tmp)) < 0)
+    if ((ret = av_opt_set_dict(s, &tmp)) < 0) //用户自定义设置的options添加到AVFormatContext结构体
         goto fail;
 
-    if (!(s->url = av_strdup(filename ? filename : ""))) {
+    if (!(s->url = av_strdup(filename ? filename : ""))) { //分配一个字符串，表示输入文件的URL
         ret = AVERROR(ENOMEM);
         goto fail;
     }

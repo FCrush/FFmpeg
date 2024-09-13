@@ -446,12 +446,13 @@ int av_append_packet(AVIOContext *s, AVPacket *pkt, int size);
 struct AVCodecTag;
 
 /**
- * This structure contains the data a format has to probe a file.
+ * 用于存储用于探测文件格式的相关信息
+ * 这个结构通常包含文件名、文件开头的一些字节数据等信息,这些信息可以帮助FFmpeg正确识别文件的格式
  */
 typedef struct AVProbeData {
     const char *filename;
     unsigned char *buf; /**< Buffer must have AVPROBE_PADDING_SIZE of extra allocated bytes filled with zero. */
-    int buf_size;       /**< Size of buf except extra allocated bytes */
+    int buf_size;       /**< 这表示buf中实际数据的大小,不包括额外分配的填充字节 */
     const char *mime_type; /**< mime_type, when known. */
 } AVProbeData;
 
@@ -462,15 +463,15 @@ typedef struct AVProbeData {
 #define AVPROBE_SCORE_MIME       75 ///< score for file mime type
 #define AVPROBE_SCORE_MAX       100 ///< maximum score
 
-#define AVPROBE_PADDING_SIZE 32             ///< extra allocated bytes at the end of the probe buffer
+#define AVPROBE_PADDING_SIZE 32             ///< 额外分配的字节数，用于探测缓冲区
 
-/// Demuxer will use avio_open, no opened file should be provided by the caller.
+/// 表示demuxer将使用avio_open打开文件，调用者不应该提供已打开的文件
 #define AVFMT_NOFILE        0x0001
 #define AVFMT_NEEDNUMBER    0x0002 /**< Needs '%d' in filename. */
 /**
- * The muxer/demuxer is experimental and should be used with caution.
+ * 表示格式是实验性的，使用时要小心。
  *
- * - demuxers: will not be selected automatically by probing, must be specified
+ * - demuxers: 不会自动通过探测选择，必须明确指定。
  *             explicitly.
  */
 #define AVFMT_EXPERIMENTAL  0x0004
@@ -1267,22 +1268,21 @@ typedef struct AVFormatContext {
     const AVClass *av_class;
 
     /**
-     * The input container format.
+     * 输入容器格式，如mp4、flv、mov等
      *
      * Demuxing only, set by avformat_open_input().
      */
     const struct AVInputFormat *iformat;
 
     /**
-     * The output container format.
+     * 输出容器格式，如mp4、flv、mov等
      *
      * Muxing only, must be set by the caller before avformat_write_header().
      */
     const struct AVOutputFormat *oformat;
 
     /**
-     * Format private data. This is an AVOptions-enabled struct
-     * if and only if iformat/oformat.priv_class is not NULL.
+     * 格式私有数据。这是一个AVOptions-enabled结构体，当且仅当iformat/oformat.priv_class不为NULL时。
      *
      * - muxing: set by avformat_write_header()
      * - demuxing: set by avformat_open_input()
@@ -1300,6 +1300,7 @@ typedef struct AVFormatContext {
      * Do NOT set this field if AVFMT_NOFILE flag is set in
      * iformat/oformat.flags. In such a case, the (de)muxer will handle
      * I/O in some other way and this field will be NULL.
+     * 它定义了如何读取或写入媒体数据。
      */
     AVIOContext *pb;
 
@@ -1418,12 +1419,12 @@ typedef struct AVFormatContext {
 #define AVFMT_FLAG_NOFILLIN     0x0010 ///< Do not infer any values from other values, just return what is stored in the container
 #define AVFMT_FLAG_NOPARSE      0x0020 ///< Do not use AVParsers, you also must set AVFMT_FLAG_NOFILLIN as the fillin code works on frames and no parsing -> no frames. Also seeking to frames can not work if parsing to find frame boundaries has been disabled
 #define AVFMT_FLAG_NOBUFFER     0x0040 ///< Do not buffer frames when possible
-#define AVFMT_FLAG_CUSTOM_IO    0x0080 ///< The caller has supplied a custom AVIOContext, don't avio_close() it.
-#define AVFMT_FLAG_DISCARD_CORRUPT  0x0100 ///< Discard frames marked corrupted
-#define AVFMT_FLAG_FLUSH_PACKETS    0x0200 ///< Flush the AVIOContext every packet.
+#define AVFMT_FLAG_CUSTOM_IO    0x0080 ///< 调用者提供了一个自定义的AVIOContext，不要调用avio_close()关闭它。
+#define AVFMT_FLAG_DISCARD_CORRUPT  0x0100 ///< 丢弃标记为损坏的帧
+#define AVFMT_FLAG_FLUSH_PACKETS    0x0200 ///< 每次写入一个packet后刷新AVIOContext
 /**
- * When muxing, try to avoid writing any random/volatile data to the output.
- * This includes any random IDs, real-time timestamps/dates, muxer version, etc.
+ * 当muxing时，尝试避免向输出写入任何随机/易变的文件。
+ * 这包括任何随机ID、实时时间戳/日期、muxer版本等。
  *
  * This flag is mainly intended for testing.
  */

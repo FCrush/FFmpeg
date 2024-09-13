@@ -487,16 +487,12 @@ const char *av_packet_side_data_name(enum AVPacketSideDataType type);
  * packets, with no compressed data, containing only side data
  * (e.g. to update some stream parameters at the end of encoding).
  *
- * The semantics of data ownership depends on the buf field.
- * If it is set, the packet data is dynamically allocated and is
- * valid indefinitely until a call to av_packet_unref() reduces the
- * reference count to 0.
+ * 数据所有权的语义取决于buf字段
+ * 如果它被设置,数据包数据是动态分配的,并且是有效的,直到调用av_packet_unref()将引用计数减少到0为止。
  *
- * If the buf field is not set av_packet_ref() would make a copy instead
- * of increasing the reference count.
+ * 如果buf字段未设置,av_packet_ref()将进行复制,而不是增加引用计数。
  *
- * The side data is always allocated with av_malloc(), copied by
- * av_packet_ref() and freed by av_packet_unref().
+ * 附加数据总是使用av_malloc()分配,由av_packet_ref()复制,并由av_packet_unref()释放。
  *
  * sizeof(AVPacket) being a part of the public ABI is deprecated. once
  * av_init_packet() is removed, new packets will only be able to be allocated
@@ -512,8 +508,9 @@ typedef struct AVPacket {
      * A reference to the reference-counted buffer where the packet data is
      * stored.
      * May be NULL, then the packet data is not reference-counted.
+     * 指向存储数据包内容的引用计数缓冲区。如果为NULL,则数据包数据不是引用计数的
      */
-    AVBufferRef *buf;
+    AVBufferRef *buf; 
     /**
      * Presentation timestamp in AVStream->time_base units; the time at which
      * the decompressed packet will be presented to the user.
@@ -522,17 +519,19 @@ typedef struct AVPacket {
      * decompression, unless one wants to view hex dumps. Some formats misuse
      * the terms dts and pts/cts to mean something different. Such timestamps
      * must be converted to true pts/dts before they are stored in AVPacket.
+     * 显示时间戳,以AVStream->time_base为单位。表示解压后的数据包应该在何时呈现给用户
      */
     int64_t pts;
     /**
      * Decompression timestamp in AVStream->time_base units; the time at which
      * the packet is decompressed.
      * Can be AV_NOPTS_VALUE if it is not stored in the file.
+     * 解码时间戳,以AVStream->time_base为单位。表示数据包应该在何时被解码
      */
     int64_t dts;
-    uint8_t *data;
-    int   size;
-    int   stream_index;
+    uint8_t *data; //指向实际的数据包内容
+    int   size; //数据包内容的大小
+    int   stream_index; //数据包所属的流索引
     /**
      * A combination of AV_PKT_FLAG values
      */
@@ -541,19 +540,20 @@ typedef struct AVPacket {
      * Additional packet data that can be provided by the container.
      * Packet can contain several types of side information.
      */
-    AVPacketSideData *side_data;
-    int side_data_elems;
+    AVPacketSideData *side_data; //指向附加的数据包信息数组
+    int side_data_elems; //side_data数组中的元素数量
 
     /**
      * Duration of this packet in AVStream->time_base units, 0 if unknown.
      * Equals next_pts - this_pts in presentation order.
      */
-    int64_t duration;
+    int64_t duration; //数据包的持续时间,以AVStream->time_base为单位。如果未知则为0
 
     int64_t pos;                            ///< byte position in stream, -1 if unknown
 
     /**
      * for some private data of the user
+     * 用户私有数据的指针
      */
     void *opaque;
 
@@ -565,6 +565,9 @@ typedef struct AVPacket {
      *
      * This is unrelated to the opaque field, although it serves a similar
      * purpose.
+     * 供API用户自由使用的AVBufferRef。FFmpeg不会检查其内容。
+     * FFmpeg在packet unreference时调用av_buffer_unref()释放它。
+     * av_packet_copy_props()为目标packet的opaque_ref字段调用av_buffer_ref()创建一个新引用。
      */
     AVBufferRef *opaque_ref;
 
@@ -573,6 +576,7 @@ typedef struct AVPacket {
      * In the future, this field may be set on packets output by encoders or
      * demuxers, but its value will be by default ignored on input to decoders
      * or muxers.
+     * 数据包时间戳的时间基准。将来可能会被编码器或解复用器设置在输出数据包上。
      */
     AVRational time_base;
 } AVPacket;
