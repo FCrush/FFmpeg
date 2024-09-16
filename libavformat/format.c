@@ -261,16 +261,16 @@ int av_probe_input_buffer2(AVIOContext *pb, const AVInputFormat **fmt,
 
     if (!max_probe_size)
         max_probe_size = PROBE_BUF_MAX;
-    else if (max_probe_size < PROBE_BUF_MIN) {
+    else if (max_probe_size < PROBE_BUF_MIN) { //如果用户指定的probe size小于最小probe size，则报错
         av_log(logctx, AV_LOG_ERROR,
                "Specified probe size value %u cannot be < %u\n", max_probe_size, PROBE_BUF_MIN);
         return AVERROR(EINVAL);
     }
 
-    if (offset >= max_probe_size)
+    if (offset >= max_probe_size) //如果offset大于等于最大probe size，则报错
         return AVERROR(EINVAL);
 
-    if (pb->av_class) {
+    if (pb->av_class) { //如果pb的av_class不为空，则从pb的av_class中获取mime_type
         uint8_t *mime_type_opt = NULL;
         char *semi;
         av_opt_get(pb, "mime_type", AV_OPT_SEARCH_CHILDREN, &mime_type_opt);
@@ -287,19 +287,20 @@ int av_probe_input_buffer2(AVIOContext *pb, const AVInputFormat **fmt,
         score = probe_size < max_probe_size ? AVPROBE_SCORE_RETRY : 0;
 
         /* Read probe data. */
-        if ((ret = av_reallocp(&buf, probe_size + AVPROBE_PADDING_SIZE)) < 0)
+        if ((ret = av_reallocp(&buf, probe_size + AVPROBE_PADDING_SIZE)) < 0) //重新分配buf的大小
             goto fail;
-        if ((ret = avio_read(pb, buf + buf_offset,
+        if ((ret = avio_read(pb, buf + buf_offset, //从pb中读取probe_size - buf_offset个字节到buf + buf_offset
                              probe_size - buf_offset)) < 0) {
             /* Fail if error was not end of file, otherwise, lower score. */
-            if (ret != AVERROR_EOF)
+            if (ret != AVERROR_EOF) //如果读取失败，并且不是EOF，则报错
                 goto fail;
 
             score = 0;
             ret   = 0;          /* error was end of file, nothing read */
             eof   = 1;
         }
-        buf_offset += ret;
+        buf_offset += ret; //更新buf_offset
+
         if (buf_offset < offset)
             continue;
         pd.buf_size = buf_offset - offset;

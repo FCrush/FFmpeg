@@ -31,7 +31,7 @@
 
 /** size of probe buffer, for guessing file type from file contents */
 #define PROBE_BUF_MIN 2048
-#define PROBE_BUF_MAX (1 << 20)
+#define PROBE_BUF_MAX (1 << 20) //1MB
 
 #ifdef DEBUG
 #    define hex_dump_debug(class, buf, size) av_hex_dump_log(class, AV_LOG_DEBUG, buf, size)
@@ -97,7 +97,11 @@ typedef struct FFFormatContext {
      */
     PacketList packet_buffer;
 
-    /* av_seek_frame() support */
+    /**
+     * 存储媒体文件中第一个数据包的偏移量；
+     * 在视频播放器中，用户可以通过这个变量实现精确的帧定位，以便在播放过程中快速跳转到指定的时间点
+     * av_seek_frame()支持
+     */
     int64_t data_offset; /**< offset of the first packet */
 
     /**
@@ -135,6 +139,8 @@ typedef struct FFFormatContext {
     AVPacket *pkt; 
     /**
      * Sum of the size of packets in raw_packet_buffer, in bytes.
+     * 存储原始数据包缓冲区中所有数据包的总大小（以字节为单位）
+     * 在处理媒体文件时，用户可以通过这个变量监控缓冲区的大小，确保不会占用过多的内存
      */
     int raw_packet_buffer_size;
 
@@ -166,7 +172,8 @@ typedef struct FFFormatContext {
     int streams_initialized;
 
     /**
-     * ID3v2 tag useful for MP3 demuxing
+     * 存储ID3v2标签信息，主要用于MP3文件的解复用（demuxing）过程
+     * 存储MP3文件中的ID3v2标签，如歌曲标题、艺术家、专辑、年份、注释等
      */
     AVDictionary *id3v2_meta;
 
@@ -235,6 +242,9 @@ typedef struct FFStream {
 
     /**
      * Whether the internal avctx needs to be updated from codecpar (after a late change to codecpar)
+     * 标记内部编解码器上下文（avctx）是否需要从编解码器参数（codecpar）更新
+     * 在解复用（demuxing）过程中，如果编解码器参数（codecpar）发生更改，libavformat会设置`need_context_update`变量为非0值。
+     * 在解码过程中，如果检测到need_context_update为非0值，libavformat会更新内部编解码器上下文（avctx）
      */
     int need_context_update;
 
@@ -385,6 +395,7 @@ typedef struct FFStream {
 
     /* av_read_frame() support */
     enum AVStreamParseType need_parsing;
+    // 这个变量是一个指向AVCodecParserContext结构的指针，用于解析编解码器数据包。
     struct AVCodecParserContext *parser;
 
     /**

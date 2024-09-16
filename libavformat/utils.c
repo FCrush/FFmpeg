@@ -111,6 +111,12 @@ int av_append_packet(AVIOContext *s, AVPacket *pkt, int size)
     return append_packet_chunked(s, pkt, size);
 }
 
+/**
+ * 测试文件名是否可以用于图像编号。
+ * 
+ * @param filename 文件名
+ * @return 如果文件名可以用于图像编号，返回1；否则返回0
+ */
 int av_filename_number_test(const char *filename)
 {
     char buf[1024];
@@ -280,6 +286,16 @@ uint64_t ff_parse_ntp_time(uint64_t ntp_ts)
     return (sec * 1000000) + usec;
 }
 
+/**
+ * 生成帧文件名。
+ * 
+ * @param buf 用于存储生成的文件名的缓冲区
+ * @param buf_size 缓冲区的大小
+ * @param path 输入路径模板
+ * @param number 帧号
+ * @param flags 标志位
+ * @return 成功返回0，失败返回-1
+ */
 int av_get_frame_filename2(char *buf, int buf_size, const char *path, int number, int flags)
 {
     const char *p;

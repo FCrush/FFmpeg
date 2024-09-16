@@ -31,6 +31,9 @@ struct AVDeviceInfoList;
 /**
  * For an FFInputFormat with this flag set read_close() needs to be called
  * by the caller upon read_header() failure.
+ * 
+ * 如果一个FFInputFormat结构体中设置了此标志位，那么在read_header()失败时，
+ * 调用者需要负责调用read_close()。
  */
 #define FF_INFMT_FLAG_INIT_CLEANUP                             (1 << 0)
 
@@ -51,7 +54,12 @@ typedef struct FFInputFormat {
     int priv_data_size;
 
     /**
-     * Internal flags. See FF_INFMT_FLAG_* above and FF_FMT_FLAG_* in internal.h.
+     * 存储内部标志位，用于控制解复用器（demuxer）的内部行为
+     * 这些标志位通常由libavformat库内部使用，用户一般不需要直接操作
+     * 例如，FF_INFMT_FLAG_INIT_CLEANUP标志位用于指示在read_header()失败时需要调用read_close()
+     * 以释放资源
+     * FF_INFMT_FLAG_*：这些标志位定义在demux.h中，用于控制解复用器的内部行为。
+     * FF_FMT_FLAG_*：这些标志位定义在internal.h中，用于控制解复用器的内部行为。
      */
     int flags_internal;
 
@@ -63,9 +71,11 @@ typedef struct FFInputFormat {
     int (*read_probe)(const AVProbeData *);
 
     /**
-     * Read the format header and initialize the AVFormatContext
-     * structure. Return 0 if OK. 'avformat_new_stream' should be
-     * called to create new streams.
+     * 定义一个函数指针，用于解复用器,用于读取媒体文件的格式头部并初始化AVFormatContext
+     * 返回0表示成功。'avformat_new_stream' 应调用以创建新流。
+     * 在解复用器（demuxer）中，这个函数指针会被实现为具体的函数，用于处理特定格式的文件头部
+     * 调用这个函数可以获取文件的基本信息，并初始化解码所需的上下文
+     * 这个函数通常由libavformat库内部实现，用户一般不需要直接调用或修改
      */
     int (*read_header)(struct AVFormatContext *);
 

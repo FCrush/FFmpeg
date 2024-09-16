@@ -2709,161 +2709,152 @@ enum AVPictureStructure {
     AV_PICTURE_STRUCTURE_FRAME,        ///< coded as frame
 };
 
+/**
+ * AVCodecParserContext结构体用于解析编码数据包，提取出帧信息。
+ * 它包含了当前帧的偏移量、时间戳、帧类型等信息，以及一些用于时间戳生成的支持字段。
+ */
 typedef struct AVCodecParserContext {
-    void *priv_data;
-    const struct AVCodecParser *parser;
-    int64_t frame_offset; /* offset of the current frame */
-    int64_t cur_offset; /* current offset
-                           (incremented by each av_parser_parse()) */
-    int64_t next_frame_offset; /* offset of the next frame */
-    /* video info */
-    int pict_type; /* XXX: Put it back in AVCodecContext. */
+    void *priv_data; ///< 私有数据，用于存储解析器的特定数据。
+    const struct AVCodecParser *parser; ///< 指向当前使用的解析器结构体的指针。
+    int64_t frame_offset; /* 当前帧的偏移量 */
+    int64_t cur_offset; /* 当前偏移量
+                           (每次调用av_parser_parse()时递增) */
+    int64_t next_frame_offset; /* 下一帧的偏移量 */
+    /* 视频信息 */
+    int pict_type; /* XXX: 应该放回AVCodecContext中。 */
     /**
-     * This field is used for proper frame duration computation in lavf.
-     * It signals, how much longer the frame duration of the current frame
-     * is compared to normal frame duration.
+     * 该字段用于在lavf中正确计算帧持续时间。
+     * 它表示当前帧的持续时间比正常帧持续时间长多少。
      *
-     * frame_duration = (1 + repeat_pict) * time_base
+     * 帧持续时间 = (1 + repeat_pict) * time_base
      *
-     * It is used by codecs like H.264 to display telecined material.
+     * 它被H.264等编解码器用于显示交错材料。
      */
-    int repeat_pict; /* XXX: Put it back in AVCodecContext. */
-    int64_t pts;     /* pts of the current frame */
-    int64_t dts;     /* dts of the current frame */
+    int repeat_pict; /* XXX: 应该放回AVCodecContext中。 */
+    int64_t pts;     /* 当前帧的pts */
+    int64_t dts;     /* 当前帧的dts */
 
-    /* private data */
-    int64_t last_pts;
-    int64_t last_dts;
-    int fetch_timestamp;
+    /* 私有数据 */
+    int64_t last_pts; ///< 上一个帧的pts。
+    int64_t last_dts; ///< 上一个帧的dts。
+    int fetch_timestamp; ///< 是否获取时间戳。
 
 #define AV_PARSER_PTS_NB 4
-    int cur_frame_start_index;
-    int64_t cur_frame_offset[AV_PARSER_PTS_NB];
-    int64_t cur_frame_pts[AV_PARSER_PTS_NB];
-    int64_t cur_frame_dts[AV_PARSER_PTS_NB];
+    int cur_frame_start_index; ///< 当前帧的起始索引。
+    int64_t cur_frame_offset[AV_PARSER_PTS_NB]; ///< 当前帧的偏移量数组。
+    int64_t cur_frame_pts[AV_PARSER_PTS_NB]; ///< 当前帧的pts数组。
+    int64_t cur_frame_dts[AV_PARSER_PTS_NB]; ///< 当前帧的dts数组。
 
-    int flags;
-#define PARSER_FLAG_COMPLETE_FRAMES           0x0001
-#define PARSER_FLAG_ONCE                      0x0002
-/// Set if the parser has a valid file offset
-#define PARSER_FLAG_FETCHED_OFFSET            0x0004
-#define PARSER_FLAG_USE_CODEC_TS              0x1000
+    int flags; ///< 解析器标志。
+#define PARSER_FLAG_COMPLETE_FRAMES           0x0001 ///< 完整帧标志。
+#define PARSER_FLAG_ONCE                      0x0002 ///< 一次解析标志。
+/// 设置如果解析器有有效的文件偏移量
+#define PARSER_FLAG_FETCHED_OFFSET            0x0004 ///< 已获取偏移量标志。
+#define PARSER_FLAG_USE_CODEC_TS              0x1000 ///< 使用编解码器时间戳标志。
 
-    int64_t offset;      ///< byte offset from starting packet start
-    int64_t cur_frame_end[AV_PARSER_PTS_NB];
+    int64_t offset;      ///< 从起始数据包开始的字节偏移量。
+    int64_t cur_frame_end[AV_PARSER_PTS_NB]; ///< 当前帧的结束偏移量数组。
 
     /**
-     * Set by parser to 1 for key frames and 0 for non-key frames.
-     * It is initialized to -1, so if the parser doesn't set this flag,
-     * old-style fallback using AV_PICTURE_TYPE_I picture type as key frames
-     * will be used.
+     * 由解析器设置为1表示关键帧，0表示非关键帧。
+     * 初始化为-1，如果解析器未设置此标志，
+     * 将使用旧样式回退，使用AV_PICTURE_TYPE_I作为关键帧。
      */
     int key_frame;
 
-    // Timestamp generation support:
+    // 时间戳生成支持:
     /**
-     * Synchronization point for start of timestamp generation.
+     * 时间戳生成的同步点。
      *
-     * Set to >0 for sync point, 0 for no sync point and <0 for undefined
-     * (default).
+     * 设置为>0表示同步点，0表示无同步点，<0表示未定义（默认）。
      *
-     * For example, this corresponds to presence of H.264 buffering period
-     * SEI message.
+     * 例如，这对应于H.264缓冲期SEI消息的存在。
      */
     int dts_sync_point;
 
     /**
-     * Offset of the current timestamp against last timestamp sync point in
-     * units of AVCodecContext.time_base.
+     * 当前时间戳相对于最后一个时间戳同步点的偏移量，
+     * 单位为AVCodecContext.time_base。
      *
-     * Set to INT_MIN when dts_sync_point unused. Otherwise, it must
-     * contain a valid timestamp offset.
+     * 当dts_sync_point未使用时，设置为INT_MIN。否则，必须包含有效的时间戳偏移量。
      *
-     * Note that the timestamp of sync point has usually a nonzero
-     * dts_ref_dts_delta, which refers to the previous sync point. Offset of
-     * the next frame after timestamp sync point will be usually 1.
+     * 注意，同步点的时间戳通常具有非零的dts_ref_dts_delta，
+     * 它引用前一个同步点。同步点之后的下一帧的偏移量通常为1。
      *
-     * For example, this corresponds to H.264 cpb_removal_delay.
+     * 例如，这对应于H.264 cpb_removal_delay。
      */
     int dts_ref_dts_delta;
 
     /**
-     * Presentation delay of current frame in units of AVCodecContext.time_base.
+     * 当前帧的呈现延迟，单位为AVCodecContext.time_base。
      *
-     * Set to INT_MIN when dts_sync_point unused. Otherwise, it must
-     * contain valid non-negative timestamp delta (presentation time of a frame
-     * must not lie in the past).
+     * 当dts_sync_point未使用时，设置为INT_MIN。否则，必须包含有效的非负时间戳增量（帧的呈现时间不能在过去）。
      *
-     * This delay represents the difference between decoding and presentation
-     * time of the frame.
+     * 此延迟表示解码和呈现时间之间的差异。
      *
-     * For example, this corresponds to H.264 dpb_output_delay.
+     * 例如，这对应于H.264 dpb_output_delay。
      */
     int pts_dts_delta;
 
     /**
-     * Position of the packet in file.
+     * 数据包在文件中的位置。
      *
-     * Analogous to cur_frame_pts/dts
+     * 类似于cur_frame_pts/dts。
      */
     int64_t cur_frame_pos[AV_PARSER_PTS_NB];
 
     /**
-     * Byte position of currently parsed frame in stream.
+     * 当前解析帧在流中的字节位置。
      */
     int64_t pos;
 
     /**
-     * Previous frame byte position.
+     * 上一个帧的字节位置。
      */
     int64_t last_pos;
 
     /**
-     * Duration of the current frame.
-     * For audio, this is in units of 1 / AVCodecContext.sample_rate.
-     * For all other types, this is in units of AVCodecContext.time_base.
+     * 当前帧的持续时间。
+     * 对于音频，这是1 / AVCodecContext.sample_rate的单位。
+     * 对于所有其他类型，这是AVCodecContext.time_base的单位。
      */
     int duration;
 
-    enum AVFieldOrder field_order;
+    enum AVFieldOrder field_order; ///< 场顺序。
 
     /**
-     * Indicate whether a picture is coded as a frame, top field or bottom field.
+     * 指示图片是作为帧、顶场还是底场编码的。
      *
-     * For example, H.264 field_pic_flag equal to 0 corresponds to
-     * AV_PICTURE_STRUCTURE_FRAME. An H.264 picture with field_pic_flag
-     * equal to 1 and bottom_field_flag equal to 0 corresponds to
-     * AV_PICTURE_STRUCTURE_TOP_FIELD.
+     * 例如，H.264 field_pic_flag等于0对应于AV_PICTURE_STRUCTURE_FRAME。
+     * H.264图片的field_pic_flag等于1且bottom_field_flag等于0对应于AV_PICTURE_STRUCTURE_TOP_FIELD。
      */
     enum AVPictureStructure picture_structure;
 
     /**
-     * Picture number incremented in presentation or output order.
-     * This field may be reinitialized at the first picture of a new sequence.
+     * 在呈现或输出顺序中递增的图片编号。
+     * 该字段可能在新的序列的第一张图片处重新初始化。
      *
-     * For example, this corresponds to H.264 PicOrderCnt.
+     * 例如，这对应于H.264 PicOrderCnt。
      */
     int output_picture_number;
 
     /**
-     * Dimensions of the decoded video intended for presentation.
+     * 解码视频的呈现尺寸。
      */
     int width;
     int height;
 
     /**
-     * Dimensions of the coded video.
+     * 编码视频的尺寸。
      */
     int coded_width;
     int coded_height;
 
     /**
-     * The format of the coded data, corresponds to enum AVPixelFormat for video
-     * and for enum AVSampleFormat for audio.
+     * 编码数据的格式，对应于视频的enum AVPixelFormat和音频的enum AVSampleFormat。
      *
-     * Note that a decoder can have considerable freedom in how exactly it
-     * decodes the data, so the format reported here might be different from the
-     * one returned by a decoder.
+     * 注意，解码器在如何精确解码数据方面有相当大的自由度，
+     * 因此这里报告的格式可能与解码器返回的格式不同。
      */
     int format;
 } AVCodecParserContext;

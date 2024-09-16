@@ -240,12 +240,12 @@ const char *av_get_media_type_string(enum AVMediaType media_type);
 
 /**
  * @brief Undefined timestamp value
- *
+ * 自定义一个值来作为默认值，弥补pts和dts的缺失；也可以通过判断该值来判断是否存在pts和dts
  * Usually reported by demuxer that work on containers that do not provide
  * either pts or dts.
  */
 
-#define AV_NOPTS_VALUE          ((int64_t)UINT64_C(0x8000000000000000))
+#define AV_NOPTS_VALUE          ((int64_t)UINT64_C(0x8000000000000000)) //9223372036854775808
 
 /**
  * Internal time base represented as integer

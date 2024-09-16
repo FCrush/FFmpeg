@@ -184,6 +184,11 @@ static int init_input(AVFormatContext *s, const char *filename,
                                   s, 0, s->format_probesize);
 }
 
+/**
+ * 更新流的AVContext
+ * @param s 指向AVFormatContext的指针，包含媒体文件的格式和流信息。
+ * @return 成功返回0，失败返回负值的错误代码。
+ */
 static int update_stream_avctx(AVFormatContext *s)
 {
     int ret;
@@ -191,22 +196,25 @@ static int update_stream_avctx(AVFormatContext *s)
         AVStream *const st  = s->streams[i];
         FFStream *const sti = ffstream(st);
 
+        // 如果不需要更新上下文，则跳过
         if (!sti->need_context_update)
             continue;
 
-        /* close parser, because it depends on the codec */
+        /* 关闭解析器，因为它依赖于编解码器 */
         if (sti->parser && sti->avctx->codec_id != st->codecpar->codec_id) {
             av_parser_close(sti->parser);
             sti->parser = NULL;
         }
 
-        /* update internal codec context, for the parser */
+        /* 更新内部编解码器上下文，用于解析器 */
         ret = avcodec_parameters_to_context(sti->avctx, st->codecpar);
         if (ret < 0)
             return ret;
 
+        // 获取编解码器描述符
         sti->codec_desc = avcodec_descriptor_get(sti->avctx->codec_id);
 
+        // 标记上下文更新完成
         sti->need_context_update = 0;
     }
     return 0;
@@ -245,12 +253,13 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
         goto fail;
     }
 
-    if ((ret = init_input(s, filename, &tmp)) < 0)
+    if ((ret = init_input(s, filename, &tmp)) < 0) //初始化输入，打开文件，确定输入格式
         goto fail;
     s->probe_score = ret;
 
     if (!s->protocol_whitelist && s->pb && s->pb->protocol_whitelist) {
-        s->protocol_whitelist = av_strdup(s->pb->protocol_whitelist);
+        s->protocol_whitelist = av_strdup(s->pb->protocol_whitelist); 
+        //将协议白名单复制到s->protocol_whitelist，保证白名单的一致性
         if (!s->protocol_whitelist) {
             ret = AVERROR(ENOMEM);
             goto fail;
@@ -259,6 +268,7 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
 
     if (!s->protocol_blacklist && s->pb && s->pb->protocol_blacklist) {
         s->protocol_blacklist = av_strdup(s->pb->protocol_blacklist);
+        //将协议黑名单复制到s->protocol_blacklist，保证黑名单的一致性
         if (!s->protocol_blacklist) {
             ret = AVERROR(ENOMEM);
             goto fail;
@@ -266,6 +276,7 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
     }
 
     if (s->format_whitelist && av_match_list(s->iformat->name, s->format_whitelist, ',') <= 0) {
+        //如果格式白名单不为空，并且当前格式不在白名单中，则返回错误
         av_log(s, AV_LOG_ERROR, "Format not on whitelist \'%s\'\n", s->format_whitelist);
         ret = AVERROR(EINVAL);
         goto fail;
@@ -273,7 +284,7 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
 
     avio_skip(s->pb, s->skip_initial_bytes);
 
-    /* Check filename in case an image number is expected. */
+     /* 检查文件名，以防需要图像编号。 */
     if (s->iformat->flags & AVFMT_NEEDNUMBER) {
         if (!av_filename_number_test(filename)) {
             ret = AVERROR(EINVAL);
@@ -283,7 +294,7 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
 
     s->duration = s->start_time = AV_NOPTS_VALUE;
 
-    /* Allocate private data. */
+    /* 分配私有数据。如果priv_data_size>0，则分配内存，并设置默认值 */
     if (ffifmt(s->iformat)->priv_data_size > 0) {
         if (!(s->priv_data = av_mallocz(ffifmt(s->iformat)->priv_data_size))) {
             ret = AVERROR(ENOMEM);
@@ -297,11 +308,11 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
         }
     }
 
-    /* e.g. AVFMT_NOFILE formats will not have an AVIOContext */
+    /* 例如，AVFMT_NOFILE 格式的文件将没有 AVIOContext */
     if (s->pb)
         ff_id3v2_read_dict(s->pb, &si->id3v2_meta, ID3v2_DEFAULT_MAGIC, &id3v2_extra_meta);
 
-    if (ffifmt(s->iformat)->read_header)
+    if (ffifmt(s->iformat)->read_header) //由解复用器的全局结构体定义好的默认值
         if ((ret = ffifmt(s->iformat)->read_header(s)) < 0) {
             if (ffifmt(s->iformat)->flags_internal & FF_INFMT_FLAG_INIT_CLEANUP)
                 goto close;
@@ -309,36 +320,40 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
         }
 
     if (!s->metadata) {
-        s->metadata    = si->id3v2_meta;
-        si->id3v2_meta = NULL;
+        s->metadata    = si->id3v2_meta; //将ID3v2标签信息存储到AVFormatContext的metadata变量中
+        si->id3v2_meta = NULL; //将ID3v2标签信息从FFFormatContext的id3v2_meta变量中清除
     } else if (si->id3v2_meta) {
         av_log(s, AV_LOG_WARNING, "Discarding ID3 tags because more suitable tags were found.\n");
-        av_dict_free(&si->id3v2_meta);
+        av_dict_free(&si->id3v2_meta); //释放ID3v2标签信息
     }
 
-    if (id3v2_extra_meta) {
+    if (id3v2_extra_meta) { 
+        //如果ID3v2标签信息不为空，则解析ID3v2标签信息
         if (!strcmp(s->iformat->name, "mp3") || !strcmp(s->iformat->name, "aac") ||
             !strcmp(s->iformat->name, "tta") || !strcmp(s->iformat->name, "wav")) {
+            //解析APIC（Attached Picture）信息
             if ((ret = ff_id3v2_parse_apic(s, id3v2_extra_meta)) < 0)
                 goto close;
+            //解析章节信息
             if ((ret = ff_id3v2_parse_chapters(s, id3v2_extra_meta)) < 0)
                 goto close;
+            //解析私有数据
             if ((ret = ff_id3v2_parse_priv(s, id3v2_extra_meta)) < 0)
                 goto close;
         } else
             av_log(s, AV_LOG_DEBUG, "demuxer does not support additional id3 data, skipping\n");
-        ff_id3v2_free_extra_meta(&id3v2_extra_meta);
+        ff_id3v2_free_extra_meta(&id3v2_extra_meta); //释放ID3v2标签信息
     }
 
     if ((ret = avformat_queue_attached_pictures(s)) < 0)
         goto close;
 
     if (s->pb && !si->data_offset)
-        si->data_offset = avio_tell(s->pb);
+        si->data_offset = avio_tell(s->pb); //获取数据偏移量
 
-    si->raw_packet_buffer_size = 0;
+    si->raw_packet_buffer_size = 0; //初始化原始数据包缓冲区大小
 
-    update_stream_avctx(s);
+    update_stream_avctx(s); //更新流AVContext
 
     if (options) {
         av_dict_free(options);

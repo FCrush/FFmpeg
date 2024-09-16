@@ -1757,7 +1757,8 @@ typedef struct AVFormatContext {
     char *format_whitelist;
 
     /**
-     * ',' separated list of allowed protocols.
+     * ',' separated list of allowed protocols，"file,http,https,rtmp".
+     * 定义一个允许使用的协议列表，只有在白名单中的才允许被使用
      * - encoding: unused
      * - decoding: set by user
      */
@@ -1765,6 +1766,7 @@ typedef struct AVFormatContext {
 
     /**
      * ',' separated list of disallowed protocols.
+     * 黑名单，作用同上，结合白名单一起使用
      * - encoding: unused
      * - decoding: set by user
      */

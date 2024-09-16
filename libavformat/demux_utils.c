@@ -90,6 +90,12 @@ void av_format_inject_global_side_data(AVFormatContext *s)
     }
 }
 
+/**
+ * 将所有附加图片排队到原始数据包缓冲区中。
+ *
+ * @param s 指向AVFormatContext的指针，包含媒体文件的格式和流信息。
+ * @return 成功返回0，失败返回负值的错误代码。
+ */
 int avformat_queue_attached_pictures(AVFormatContext *s)
 {
     FFFormatContext *const si = ffformatcontext(s);

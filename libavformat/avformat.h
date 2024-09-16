@@ -466,8 +466,8 @@ typedef struct AVProbeData {
 #define AVPROBE_PADDING_SIZE 32             ///< 额外分配的字节数，用于探测缓冲区
 
 /// 表示demuxer将使用avio_open打开文件，调用者不应该提供已打开的文件
-#define AVFMT_NOFILE        0x0001
-#define AVFMT_NEEDNUMBER    0x0002 /**< Needs '%d' in filename. */
+#define AVFMT_NOFILE        0x0001  //解复用器不需要文件支持，通常用于内存中的数据流
+#define AVFMT_NEEDNUMBER    0x0002 /**< Needs '%d' in filename. 文件名中需要包含数字，通常用于处理图像序列*/
 /**
  * 表示格式是实验性的，使用时要小心。
  *
@@ -475,17 +475,17 @@ typedef struct AVProbeData {
  *             explicitly.
  */
 #define AVFMT_EXPERIMENTAL  0x0004
-#define AVFMT_SHOW_IDS      0x0008 /**< Show format stream IDs numbers. */
+#define AVFMT_SHOW_IDS      0x0008 /**< Show format stream IDs numbers. 显示流的ID，通常用于调试或信息显示*/
 #define AVFMT_GLOBALHEADER  0x0040 /**< Format wants global header. */
-#define AVFMT_NOTIMESTAMPS  0x0080 /**< Format does not need / have any timestamps. */
-#define AVFMT_GENERIC_INDEX 0x0100 /**< Use generic index building code. */
-#define AVFMT_TS_DISCONT    0x0200 /**< Format allows timestamp discontinuities. Note, muxers always require valid (monotone) timestamps */
-#define AVFMT_VARIABLE_FPS  0x0400 /**< Format allows variable fps. */
-#define AVFMT_NODIMENSIONS  0x0800 /**< Format does not need width/height */
-#define AVFMT_NOSTREAMS     0x1000 /**< Format does not require any streams */
-#define AVFMT_NOBINSEARCH   0x2000 /**< Format does not allow to fall back on binary search via read_timestamp */
-#define AVFMT_NOGENSEARCH   0x4000 /**< Format does not allow to fall back on generic search */
-#define AVFMT_NO_BYTE_SEEK  0x8000 /**< Format does not allow seeking by bytes */
+#define AVFMT_NOTIMESTAMPS  0x0080 /**< Format does not need / have any timestamps.流中没有时间戳信息 */
+#define AVFMT_GENERIC_INDEX 0x0100 /**< Use generic index building code.使用通用的索引构建代码 */
+#define AVFMT_TS_DISCONT    0x0200 /**< Format 流中允许时间戳不连续. Note, muxers always require valid (monotone) timestamps */
+#define AVFMT_VARIABLE_FPS  0x0400 /**< Format allows variable fps. 允许视频流使用可变帧率 */
+#define AVFMT_NODIMENSIONS  0x0800 /**< Format does not need width/height 不需要宽度和高度信息 */
+#define AVFMT_NOSTREAMS     0x1000 /**< Format does not require any streams 不需要任何流 */
+#define AVFMT_NOBINSEARCH   0x2000 /**< Format does not allow to fall back on binary search via read_timestamp 不允许通过二进制搜索读取时间戳 */
+#define AVFMT_NOGENSEARCH   0x4000 /**< Format does not allow to fall back on generic search 不允许使用通用搜索 */
+#define AVFMT_NO_BYTE_SEEK  0x8000 /**< Format does not allow seeking by bytes 不允许通过字节进行搜索 */
 #if FF_API_ALLOW_FLUSH
 #define AVFMT_ALLOW_FLUSH  0x10000 /**< @deprecated: Just send a NULL packet if you want to flush a muxer. */
 #endif
@@ -501,7 +501,7 @@ typedef struct AVProbeData {
                                         AVFormatContext.avoid_negative_ts
                                         */
 
-#define AVFMT_SEEK_TO_PTS   0x4000000 /**< Seeking is based on PTS */
+#define AVFMT_SEEK_TO_PTS   0x4000000 /**< Seeking is based on PTS.查找操作基于PTS */
 
 /**
  * @addtogroup lavf_encoding
@@ -561,6 +561,8 @@ typedef struct AVInputFormat {
     const char *long_name;
 
     /**
+     * 用于控制解复用器（demuxer）的行为。这些标志位通过位掩码（bitmask）的方式组合在一起;
+     * 用于配置解复用器的行为，例如是否需要文件、是否显示流ID、是否支持时间戳等
      * Can use flags: AVFMT_NOFILE, AVFMT_NEEDNUMBER, AVFMT_SHOW_IDS,
      * AVFMT_NOTIMESTAMPS, AVFMT_GENERIC_INDEX, AVFMT_TS_DISCONT, AVFMT_NOBINSEARCH,
      * AVFMT_NOGENSEARCH, AVFMT_NO_BYTE_SEEK, AVFMT_SEEK_TO_PTS.
@@ -1379,6 +1381,8 @@ typedef struct AVFormatContext {
     char *url;
 
     /**
+     * 流开始的时间，以AV_TIME_BASE为单位，单位为分数秒。
+     * 不要直接设置这个值：它从AVStream的值推导而来。
      * Position of the first frame of the component, in
      * AV_TIME_BASE fractional seconds. NEVER set this value directly:
      * It is deduced from the AVStream values.
@@ -1488,12 +1492,15 @@ typedef struct AVFormatContext {
     enum AVCodecID data_codec_id;
 
     /**
-     * Metadata that applies to the whole file.
+     * 存储应用于整个文件的元数据，用于存储键值对形式的元数据
+     * 存储文件级别的元数据，如标题、作者、版权信息、创建日期等，
+     * 允许用户在解复用（demuxing）和复用（muxing）过程中访问和设置这些元数据。
      *
-     * - demuxing: set by libavformat in avformat_open_input()
-     * - muxing: may be set by the caller before avformat_write_header()
+     * - demuxing: 在调用avformat_open_input()时，libavformat会设置这个变量，读取文件中的元数据
+     * - muxing: 在调用avformat_write_header()之前，用户可以设置这个变量，将元数据写入文件
      *
-     * Freed by libavformat in avformat_free_context().
+     * 在avformat_free_context()时，libavformat会释放这个变量及其内容
+     * 这个变量存储的是文件级别的元数据，与流级别的元数据（如AVStream中的metadata）不同。
      */
     AVDictionary *metadata;
 
@@ -1694,7 +1701,7 @@ typedef struct AVFormatContext {
     enum AVDurationEstimationMethod duration_estimation_method;
 
     /**
-     * Skip initial bytes when opening stream
+     * 在打开流时跳过开头的一定数量的字节，跳过文件特定揩开头非数据部分，利于处理自定义部分，提高解码效率
      * - encoding: unused
      * - decoding: Set by user
      */
@@ -1722,7 +1729,7 @@ typedef struct AVFormatContext {
     int flush_packets;
 
     /**
-     * format probing score.
+     * format probing score，探测出来的最佳分数
      * The maximal score is AVPROBE_SCORE_MAX, its set when the demuxer probes
      * the format.
      * - encoding: unused
@@ -1750,8 +1757,10 @@ typedef struct AVFormatContext {
     char *codec_whitelist;
 
     /**
-     * ',' separated list of allowed demuxers.
-     * If NULL then all are allowed
+     * ',' separated list of allowed demuxers，"mp4,mov,avi,mkv"
+     * 允许使用解复用器的封装列表
+     * 如果这个变量为NULL，则所有支持的解复用器都被允许使用；
+     * 限制允许的格式可能会略微提高文件格式检测的速度，因为FFmpeg只需要尝试白名单中的格式。
      * - encoding: unused
      * - decoding: set by user
      */

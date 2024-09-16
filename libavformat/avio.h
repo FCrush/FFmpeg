@@ -268,14 +268,20 @@ typedef struct AVIOContext {
     int direct;
 
     /**
-     * ',' separated list of allowed protocols.
+     * ',' separated list of allowed protocols，"file,http,https,rtmp".
+     * 定义一个允许使用的协议列表，只有在白名单中的才允许被使用
+     * - encoding: unused
+     * - decoding: set by user
      */
-    const char *protocol_whitelist;
+    char *protocol_whitelist;
 
     /**
      * ',' separated list of disallowed protocols.
+     * 黑名单，作用同上，结合白名单一起使用
+     * - encoding: unused
+     * - decoding: set by user
      */
-    const char *protocol_blacklist;
+    char *protocol_blacklist;
 
     /**
      * A callback that is used instead of write_packet.
@@ -493,7 +499,7 @@ int64_t avio_skip(AVIOContext *s, int64_t offset);
  */
 static av_always_inline int64_t avio_tell(AVIOContext *s)
 {
-    return avio_seek(s, 0, SEEK_CUR);
+    return avio_seek(s, 0, SEEK_CUR); //获取当前位置
 }
 
 /**
