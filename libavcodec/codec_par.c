@@ -200,11 +200,19 @@ int avcodec_parameters_from_context(AVCodecParameters *par,
     return 0;
 }
 
+/**
+ * 将AVCodecParameters中的参数复制到AVCodecContext中。
+ * 
+ * @param codec 目标AVCodecContext指针
+ * @param par 源AVCodecParameters指针
+ * @return 成功返回0，失败返回负值的错误代码
+ */
 int avcodec_parameters_to_context(AVCodecContext *codec,
                                   const AVCodecParameters *par)
 {
     int ret;
 
+    // 复制基本编解码器参数
     codec->codec_type = par->codec_type;
     codec->codec_id   = par->codec_id;
     codec->codec_tag  = par->codec_tag;
@@ -215,6 +223,7 @@ int avcodec_parameters_to_context(AVCodecContext *codec,
     codec->profile               = par->profile;
     codec->level                 = par->level;
 
+    // 根据编解码器类型复制特定参数
     switch (par->codec_type) {
     case AVMEDIA_TYPE_VIDEO:
         codec->pix_fmt                = par->format;
@@ -249,6 +258,7 @@ int avcodec_parameters_to_context(AVCodecContext *codec,
         break;
     }
 
+    // 释放并复制extradata
     av_freep(&codec->extradata);
     codec->extradata_size = 0;
     if (par->extradata) {
@@ -259,6 +269,7 @@ int avcodec_parameters_to_context(AVCodecContext *codec,
         codec->extradata_size = par->extradata_size;
     }
 
+    // 释放并复制coded_side_data
     av_packet_side_data_free(&codec->coded_side_data, &codec->nb_coded_side_data);
     ret = codec_parameters_copy_side_data(&codec->coded_side_data, &codec->nb_coded_side_data,
                                           par->coded_side_data, par->nb_coded_side_data);
